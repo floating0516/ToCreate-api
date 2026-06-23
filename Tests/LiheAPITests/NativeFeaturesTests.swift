@@ -2,6 +2,13 @@ import XCTest
 @testable import LiheAPI
 
 final class NativeFeaturesTests: XCTestCase {
+    func testAppBrandingUsesToCreateName() {
+        XCTAssertEqual(AppBranding.displayName, "ToCreate")
+        XCTAssertEqual(AppBranding.dmgName, "ToCreate.dmg")
+        XCTAssertEqual(AppBranding.bundleAppName, "ToCreate.app")
+        XCTAssertEqual(AppBranding.statusMessagePrefix, "ToCreate")
+    }
+
     func testPageReferenceUsesURLWhenTitleIsMissing() {
         let url = URL(string: "https://api.lihe.chat/dashboard")!
 
@@ -88,7 +95,7 @@ final class NativeFeaturesTests: XCTestCase {
     func testStatusMenuUsesFormalGroupedSections() {
         XCTAssertEqual(
             StatusMenuPresentation.metricRowTitles,
-            ["Lihe API", "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
+            ["ToCreate", "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
         )
         XCTAssertTrue(StatusMenuPresentation.showsChannelStatus)
         XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "偏好设置…", "退出"])
@@ -223,7 +230,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(StatusBarState.unavailable.colorName, "systemRed")
         XCTAssertEqual(StatusBarState.offline.symbolName, "circle.dashed")
         XCTAssertEqual(StatusBarState.offline.colorName, "secondaryLabelColor")
-        XCTAssertEqual(StatusBarState.refreshing.accessibilityLabel, "Lihe API 正在刷新")
+        XCTAssertEqual(StatusBarState.refreshing.accessibilityLabel, "ToCreate 正在刷新")
     }
 
     func testLaunchAtLoginUsesNativeServiceManagementAndPreferencesUI() throws {

@@ -3,13 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/lihe-api-package.XXXXXX")"
-APP="$WORK/Lihe API.app"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/tocreate-package.XXXXXX")"
+APP="$WORK/ToCreate.app"
 STAGING="$WORK/dmg"
 ICONSET="$WORK/AppIcon.iconset"
 ICON="$WORK/AppIcon.icns"
-DMG="$WORK/Lihe-API.dmg"
-OUTPUT_DMG="$DIST/Lihe-API.dmg"
+DMG="$WORK/ToCreate.dmg"
+OUTPUT_DMG="$DIST/ToCreate.dmg"
 
 trap 'rm -rf "$WORK"' EXIT
 
@@ -35,7 +35,7 @@ codesign --verify --deep --strict "$APP"
 cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
 hdiutil create \
-    -volname "Lihe API" \
+    -volname "ToCreate" \
     -srcfolder "$STAGING" \
     -ov \
     -format UDZO \

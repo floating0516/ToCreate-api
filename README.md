@@ -1,4 +1,4 @@
-# Lihe API for Mac
+# ToCreate for Mac
 
 这是 `https://api.lihe.chat` 的轻量 macOS 客户端，使用 AppKit 和 WKWebView 构建。当前版本会在 Mac 应用窗口内直接嵌入网站。
 
@@ -11,11 +11,11 @@ bash scripts/package_app.sh
 
 构建产物：
 
-- `dist/Lihe-API.dmg`
+- `dist/ToCreate.dmg`
 
 ## 测试安装
 
-打开 `dist/Lihe-API.dmg`，把 `Lihe API` 拖入 Applications。当前版本使用本机临时签名，没有 Apple 公证，仅用于自己测试。
+打开 `dist/ToCreate.dmg`，把 `ToCreate` 拖入 Applications。当前版本使用本机临时签名，没有 Apple 公证，仅用于自己测试。
 
 如果 macOS 拦截首次启动，请在 Finder 中按住 Control 点击应用并选择“打开”；或者前往“系统设置 → 隐私与安全性”允许打开。
 

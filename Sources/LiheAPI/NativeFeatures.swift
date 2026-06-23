@@ -1,6 +1,13 @@
 import AppKit
 import Foundation
 
+enum AppBranding {
+    static let displayName = "ToCreate"
+    static let dmgName = "ToCreate.dmg"
+    static let bundleAppName = "ToCreate.app"
+    static let statusMessagePrefix = "ToCreate"
+}
+
 enum ClipboardFormatter {
     static func pageReference(title: String?, url: URL) -> String {
         let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -95,7 +102,7 @@ enum StatusMenuPresentation {
     static let updatedAtTextColorName = "secondaryLabelColor"
     static let statusMenuActionTitles = ["刷新状态", "打开主窗口", "偏好设置…", "退出"]
     static let quitActionName = "quitApp"
-    static let metricRowTitles = ["Lihe API", "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
+    static let metricRowTitles = [AppBranding.displayName, "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
     static let showsChannelStatus = true
     static let labelColumnWidth: CGFloat = 72
     static let serviceStatusTitles = (ok: "● 服务正常", partial: "● 部分渠道异常", unavailable: "● 服务不可用", offline: "● 未连接")
@@ -247,15 +254,15 @@ enum StatusBarState: Equatable {
     var accessibilityLabel: String {
         switch self {
         case .refreshing:
-            return "Lihe API 正在刷新"
+            return "\(AppBranding.statusMessagePrefix) 正在刷新"
         case .healthy:
-            return "Lihe API 服务正常"
+            return "\(AppBranding.statusMessagePrefix) 服务正常"
         case .partial:
-            return "Lihe API 部分渠道异常"
+            return "\(AppBranding.statusMessagePrefix) 部分渠道异常"
         case .unavailable:
-            return "Lihe API 服务不可用"
+            return "\(AppBranding.statusMessagePrefix) 服务不可用"
         case .offline:
-            return "Lihe API 未连接"
+            return "\(AppBranding.statusMessagePrefix) 未连接"
         }
     }
 }

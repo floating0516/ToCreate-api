@@ -12,7 +12,7 @@ struct LauncherView: View {
                 .cornerRadius(20)
 
             VStack(spacing: 8) {
-                Text("Lihe API")
+                Text(AppBranding.displayName)
                     .font(.system(size: 30, weight: .semibold))
 
                 Text("Mac 启动器已就绪。点击下方按钮，在默认浏览器中打开你的 API 分发网站。")

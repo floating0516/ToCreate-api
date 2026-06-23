@@ -115,7 +115,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             backing: .buffered,
             defer: false
         )
-        window.title = "Lihe API"
+        window.title = AppBranding.displayName
         window.isReleasedWhenClosed = WindowLifecyclePolicy.releasesMainWindowWhenClosed
         window.center()
         window.minSize = NSSize(width: 900, height: 640)
@@ -196,7 +196,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         apiKeysMenuItem = informationalMenuItem(metricTitle("API 密钥", "加载中…"), color: StatusMenuPresentation.apiKeysTextColor)
         updatedAtMenuItem = informationalMenuItem(metricTitle("更新于", "—"), color: StatusMenuPresentation.updatedAtTextColor)
 
-        menu.addItem(headerMenuItem("Lihe API"))
+        menu.addItem(headerMenuItem(AppBranding.displayName))
         menu.addItem(serviceStatusMenuItem)
         menu.addItem(.separator())
         menu.addItem(sectionHeaderMenuItem("今日用量"))
@@ -383,9 +383,9 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { granted, error in
             if let error {
-                NSLog("Lihe API notification authorization failed: %@", error.localizedDescription)
+                NSLog("ToCreate notification authorization failed: %@", error.localizedDescription)
             }
-            NSLog("Lihe API notification authorization granted: %@", granted.description)
+            NSLog("ToCreate notification authorization granted: %@", granted.description)
         }
     }
 
@@ -408,7 +408,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "退出 Lihe API", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "退出 \(AppBranding.displayName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 
@@ -518,14 +518,14 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         content.sound = .default
 
         let request = UNNotificationRequest(
-            identifier: "lihe-api-\(UUID().uuidString)",
+            identifier: "tocreate-\(UUID().uuidString)",
             content: content,
             trigger: nil
         )
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error {
-                NSLog("Lihe API notification failed: %@", error.localizedDescription)
+                NSLog("ToCreate notification failed: %@", error.localizedDescription)
             }
         }
     }
@@ -665,7 +665,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             backing: .buffered,
             defer: false
         )
-        window.title = "Lihe API 偏好设置"
+        window.title = "\(AppBranding.displayName) 偏好设置"
         window.center()
         window.isReleasedWhenClosed = false
 
@@ -855,7 +855,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            NSLog("Lihe API launch at login configuration failed: %@", error.localizedDescription)
+            NSLog("ToCreate launch at login configuration failed: %@", error.localizedDescription)
             guard showErrors else {
                 return
             }
@@ -886,7 +886,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private func evaluateAlerts(balance: Double?, todayCost: Double?, abnormalChannels: Int) {
         if preferences.channelAlertEnabled && abnormalChannels > 0 {
             if !channelAlertIsActive {
-                sendNotification(title: "Lihe API 渠道异常", body: "检测到 \(abnormalChannels) 个异常渠道。")
+                sendNotification(title: "\(AppBranding.displayName) 渠道异常", body: "检测到 \(abnormalChannels) 个异常渠道。")
             }
             channelAlertIsActive = true
         } else {
@@ -895,7 +895,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         if preferences.balanceAlertEnabled, let balance, balance <= preferences.balanceAlertThreshold {
             if !balanceAlertIsActive {
-                sendNotification(title: "Lihe API 余额提醒", body: "当前余额低于 $\(preferences.balanceAlertThreshold)。")
+                sendNotification(title: "\(AppBranding.displayName) 余额提醒", body: "当前余额低于 $\(preferences.balanceAlertThreshold)。")
             }
             balanceAlertIsActive = true
         } else {
@@ -904,7 +904,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         if preferences.dailyCostAlertEnabled, let todayCost, todayCost >= preferences.dailyCostAlertThreshold {
             if !dailyCostAlertIsActive {
-                sendNotification(title: "Lihe API 今日费用提醒", body: "今日费用已超过 $\(preferences.dailyCostAlertThreshold)。")
+                sendNotification(title: "\(AppBranding.displayName) 今日费用提醒", body: "今日费用已超过 $\(preferences.dailyCostAlertThreshold)。")
             }
             dailyCostAlertIsActive = true
         } else {
