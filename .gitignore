@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+dist/
+*.dSYM/
+*.xcuserstate
+DerivedData/
+docs/superpowers/

@@ -1,0 +1,249 @@
+import XCTest
+@testable import LiheAPI
+
+final class NativeFeaturesTests: XCTestCase {
+    func testPageReferenceUsesURLWhenTitleIsMissing() {
+        let url = URL(string: "https://api.lihe.chat/dashboard")!
+
+        XCTAssertEqual(
+            ClipboardFormatter.pageReference(title: nil, url: url),
+            "https://api.lihe.chat/dashboard"
+        )
+    }
+
+    func testPageReferenceIncludesTitleAndURL() {
+        let url = URL(string: "https://api.lihe.chat/dashboard")!
+
+        XCTAssertEqual(
+            ClipboardFormatter.pageReference(title: "控制台", url: url),
+            "控制台\nhttps://api.lihe.chat/dashboard"
+        )
+    }
+
+    func testCurrencyFormatting() {
+        XCTAssertEqual(MetricsFormatter.currency(12.345678), "$12.3457")
+        XCTAssertEqual(MetricsFormatter.currency(nil), "—")
+    }
+
+    func testDisplayCurrencyFormattingUsesGroupingAndTwoDecimals() {
+        XCTAssertEqual(MetricsFormatter.displayCurrency(399_481.5740), "$399,481.57")
+        XCTAssertEqual(MetricsFormatter.displayCurrency(7.7457), "$7.75")
+        XCTAssertEqual(MetricsFormatter.displayCurrency(nil), "—")
+    }
+
+    func testIntegerFormatting() {
+        XCTAssertEqual(MetricsFormatter.integer(1234.4), "1234")
+        XCTAssertEqual(MetricsFormatter.integer(nil), "—")
+    }
+
+    func testCompactIntegerFormatting() {
+        XCTAssertEqual(MetricsFormatter.compactInteger(999), "999")
+        XCTAssertEqual(MetricsFormatter.compactInteger(12_345), "12.3K")
+        XCTAssertEqual(MetricsFormatter.compactInteger(18_643_388), "18.6M")
+        XCTAssertEqual(MetricsFormatter.compactInteger(nil), "—")
+    }
+
+    func testChannelSummaryFormatting() {
+        XCTAssertEqual(
+            MetricsFormatter.channelSummary(ok: 3, abnormal: 1, unknown: 0),
+            "正常 3 / 异常 1"
+        )
+
+        XCTAssertEqual(
+            MetricsFormatter.channelSummary(ok: 0, abnormal: 0, unknown: 2),
+            "正常 0 / 异常 0 / 待确认 2"
+        )
+    }
+
+    func testCompactChannelStatusFormatting() {
+        XCTAssertEqual(MetricsFormatter.compactChannelStatus(ok: 3, abnormal: 0, unknown: 0), "● 正常 3")
+        XCTAssertEqual(MetricsFormatter.compactChannelStatus(ok: 3, abnormal: 1, unknown: 0), "● 异常 1")
+        XCTAssertEqual(MetricsFormatter.compactChannelStatus(ok: 0, abnormal: 0, unknown: 2), "● 待确认 2")
+        XCTAssertEqual(MetricsFormatter.compactChannelStatus(ok: 0, abnormal: 0, unknown: 0), "—")
+    }
+
+    func testChannelMonitorOperationalStatusIsRecognizedByMenuScript() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("merged.primary_status"))
+        XCTAssertTrue(appSource.contains("'operational'"))
+    }
+
+    func testMetricMenuItemsArePresentedAsReadableInformationalRows() {
+        XCTAssertTrue(StatusMenuPresentation.metricsItemsAreEnabled)
+        XCTAssertTrue(StatusMenuPresentation.refreshControlKeepsMenuOpen)
+        XCTAssertEqual(StatusMenuPresentation.refreshControlStyleName, "plainMenuRow")
+        XCTAssertEqual(StatusMenuPresentation.metricTextAlpha, 1)
+        XCTAssertEqual(StatusMenuPresentation.balanceTextColorName, "systemGreen")
+        XCTAssertEqual(StatusMenuPresentation.usageTextColorName, "controlAccentColor")
+        XCTAssertEqual(StatusMenuPresentation.channelTextColorName, "systemOrange")
+        XCTAssertEqual(StatusMenuPresentation.updatedAtTextColorName, "secondaryLabelColor")
+    }
+
+    func testStatusMenuKeepsOnlyEssentialActions() {
+        XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "偏好设置…", "退出"])
+        XCTAssertEqual(StatusMenuPresentation.quitActionName, "quitApp")
+    }
+
+    func testStatusMenuUsesFormalGroupedSections() {
+        XCTAssertEqual(
+            StatusMenuPresentation.metricRowTitles,
+            ["Lihe API", "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
+        )
+        XCTAssertTrue(StatusMenuPresentation.showsChannelStatus)
+        XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "偏好设置…", "退出"])
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.ok, "● 服务正常")
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.partial, "● 部分渠道异常")
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.unavailable, "● 服务不可用")
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.offline, "● 未连接")
+        XCTAssertEqual(StatusMenuPresentation.labelColumnWidth, 72)
+    }
+
+    func testMainWindowIsRetainedAfterCloseForMenuBarReopen() {
+        XCTAssertFalse(WindowLifecyclePolicy.releasesMainWindowWhenClosed)
+    }
+
+    func testMainWindowEntryRoutesByLoginState() {
+        XCTAssertEqual(EntryPageRouting.loginPath, "/login")
+        XCTAssertEqual(EntryPageRouting.dashboardPath, "/dashboard")
+        XCTAssertEqual(EntryPageRouting.authTokenStorageKey, "auth_token")
+    }
+
+    func testMainWindowEntryRoutingScriptUsesLoginAndDashboard() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("entryRoutingJavaScript"))
+        XCTAssertTrue(appSource.contains("localStorage.getItem('auth_token')"))
+        XCTAssertTrue(appSource.contains("location.replace('/login')"))
+        XCTAssertTrue(appSource.contains("location.replace('/dashboard')"))
+    }
+
+    func testAppPreferencesDefaultsAreConservative() {
+        let preferences = AppPreferences.default
+
+        XCTAssertFalse(preferences.privacyModeEnabled)
+        XCTAssertEqual(preferences.refreshInterval, .off)
+        XCTAssertFalse(preferences.launchAtLoginEnabled)
+        XCTAssertTrue(preferences.channelAlertEnabled)
+        XCTAssertFalse(preferences.balanceAlertEnabled)
+        XCTAssertEqual(preferences.balanceAlertThreshold, 100)
+        XCTAssertFalse(preferences.dailyCostAlertEnabled)
+        XCTAssertEqual(preferences.dailyCostAlertThreshold, 10)
+    }
+
+    func testRefreshIntervalOptionsExposeMenuTitlesAndSeconds() {
+        XCTAssertEqual(RefreshIntervalOption.off.title, "关闭")
+        XCTAssertNil(RefreshIntervalOption.off.seconds)
+        XCTAssertEqual(RefreshIntervalOption.oneMinute.title, "每 1 分钟")
+        XCTAssertEqual(RefreshIntervalOption.oneMinute.seconds, 60)
+        XCTAssertEqual(RefreshIntervalOption.fiveMinutes.seconds, 300)
+        XCTAssertEqual(RefreshIntervalOption.fifteenMinutes.seconds, 900)
+    }
+
+    func testPreferenceStorePersistsValues() {
+        let defaults = UserDefaults(suiteName: "LiheAPITests-\(UUID().uuidString)")!
+        let store = PreferencesStore(defaults: defaults)
+
+        var preferences = AppPreferences.default
+        preferences.privacyModeEnabled = true
+        preferences.refreshInterval = .fiveMinutes
+        preferences.launchAtLoginEnabled = true
+        preferences.balanceAlertEnabled = true
+        preferences.balanceAlertThreshold = 42.5
+        preferences.dailyCostAlertEnabled = true
+        preferences.dailyCostAlertThreshold = 3.25
+
+        store.save(preferences)
+
+        XCTAssertEqual(store.load(), preferences)
+    }
+
+    func testMetricDisplayRespectsPrivacyMode() {
+        let publicDisplay = StatusMetricDisplay(
+            balance: 399_481.574,
+            todayCost: 7.7457,
+            apiKeyCount: 6,
+            preferences: .default
+        )
+
+        XCTAssertEqual(publicDisplay.balanceText, "$399,481.57")
+        XCTAssertEqual(publicDisplay.todayCostText, "$7.75")
+        XCTAssertEqual(publicDisplay.apiKeyCountText, "6 个")
+
+        var privatePreferences = AppPreferences.default
+        privatePreferences.privacyModeEnabled = true
+        let privateDisplay = StatusMetricDisplay(
+            balance: 399_481.574,
+            todayCost: 7.7457,
+            apiKeyCount: 6,
+            preferences: privatePreferences
+        )
+
+        XCTAssertEqual(privateDisplay.balanceText, "已隐藏")
+        XCTAssertEqual(privateDisplay.todayCostText, "已隐藏")
+        XCTAssertEqual(privateDisplay.apiKeyCountText, "已隐藏")
+    }
+
+    func testPreferencesWindowIsARealSettingsWindow() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("preferencesWindow"))
+        XCTAssertTrue(appSource.contains("隐私模式"))
+        XCTAssertTrue(appSource.contains("自动刷新"))
+        XCTAssertFalse(appSource.contains("后续可以在这里加入隐私模式"))
+    }
+
+    func testPreferencesWindowUsesCompactAlignedLayout() throws {
+        XCTAssertEqual(PreferencesWindowPresentation.width, 460)
+        XCTAssertEqual(PreferencesWindowPresentation.height, 332)
+        XCTAssertEqual(PreferencesWindowPresentation.labelColumnWidth, 108)
+        XCTAssertEqual(PreferencesWindowPresentation.controlColumnWidth, 190)
+        XCTAssertTrue(PreferencesWindowPresentation.layoutUsesAlignedGrid)
+
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        XCTAssertTrue(appSource.contains("PreferencesWindowPresentation.width"))
+        XCTAssertTrue(appSource.contains("makePreferenceRow"))
+        XCTAssertTrue(appSource.contains("buttonRow.topAnchor.constraint"))
+    }
+
+    func testStatusBarStateReflectsServiceHealth() {
+        XCTAssertEqual(StatusBarState.from(ok: 2, abnormal: 0, unknown: 0), .healthy)
+        XCTAssertEqual(StatusBarState.from(ok: 1, abnormal: 0, unknown: 1), .partial)
+        XCTAssertEqual(StatusBarState.from(ok: 1, abnormal: 1, unknown: 0), .unavailable)
+        XCTAssertEqual(StatusBarState.from(ok: 0, abnormal: 0, unknown: 0), .offline)
+        XCTAssertEqual(StatusBarState.refreshing, .refreshing)
+    }
+
+    func testStatusBarStateDefinesIconColorAndAccessibilityLabel() {
+        XCTAssertEqual(StatusBarState.healthy.symbolName, "checkmark.circle.fill")
+        XCTAssertEqual(StatusBarState.healthy.colorName, "systemGreen")
+        XCTAssertEqual(StatusBarState.partial.symbolName, "exclamationmark.circle.fill")
+        XCTAssertEqual(StatusBarState.partial.colorName, "systemOrange")
+        XCTAssertEqual(StatusBarState.unavailable.symbolName, "xmark.circle.fill")
+        XCTAssertEqual(StatusBarState.unavailable.colorName, "systemRed")
+        XCTAssertEqual(StatusBarState.offline.symbolName, "circle.dashed")
+        XCTAssertEqual(StatusBarState.offline.colorName, "secondaryLabelColor")
+        XCTAssertEqual(StatusBarState.refreshing.accessibilityLabel, "Lihe API 正在刷新")
+    }
+
+    func testLaunchAtLoginUsesNativeServiceManagementAndPreferencesUI() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("import ServiceManagement"))
+        XCTAssertTrue(appSource.contains("SMAppService.mainApp"))
+        XCTAssertTrue(appSource.contains("configureLaunchAtLogin"))
+        XCTAssertTrue(appSource.contains("开机启动"))
+        XCTAssertTrue(appSource.contains("登录后自动启动"))
+    }
+
+    func testMainMenuIncludesStandardEditingCommandsForWebTextFields() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("let editMenu = NSMenu(title: \"编辑\")"))
+        XCTAssertTrue(appSource.contains("#selector(NSText.cut(_:))"))
+        XCTAssertTrue(appSource.contains("#selector(NSText.copy(_:))"))
+        XCTAssertTrue(appSource.contains("#selector(NSText.paste(_:))"))
+        XCTAssertTrue(appSource.contains("#selector(NSText.selectAll(_:))"))
+        XCTAssertTrue(appSource.contains("keyEquivalent: \"v\""))
+    }
+}
