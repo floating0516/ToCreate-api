@@ -422,6 +422,42 @@ struct AppUpdateInfo: Equatable {
     let releaseNotes: String
 }
 
+enum UpdateDownloadPlanner {
+    static func destinationURL(for update: AppUpdateInfo, downloadsDirectory: URL) -> URL {
+        downloadsDirectory.appendingPathComponent("\(AppBranding.displayName)-v\(update.version).dmg")
+    }
+}
+
+enum UpdateInstallerScript {
+    static func makeScript(dmgPath: String, appName: String, installPath: String) -> String {
+        """
+        #!/bin/bash
+        set -euo pipefail
+
+        DMG_PATH=\(shellQuoted(dmgPath))
+        APP_NAME=\(shellQuoted(appName))
+        INSTALL_PATH=\(shellQuoted(installPath))
+        MOUNT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tocreate-update.XXXXXX")"
+
+        cleanup() {
+          hdiutil detach "$MOUNT_DIR" -quiet >/dev/null 2>&1 || true
+          rm -rf "$MOUNT_DIR"
+        }
+        trap cleanup EXIT
+
+        sleep 1
+        hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+        ditto "$MOUNT_DIR/$APP_NAME" "$INSTALL_PATH"
+        xattr -dr com.apple.quarantine "$INSTALL_PATH" >/dev/null 2>&1 || true
+        open "$INSTALL_PATH"
+        """
+    }
+
+    private static func shellQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+}
+
 enum VersionComparator {
     static func isRemoteVersion(_ remoteVersion: String, newerThan currentVersion: String) -> Bool {
         let remote = numericComponents(from: remoteVersion)

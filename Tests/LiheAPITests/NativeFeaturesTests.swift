@@ -300,6 +300,36 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(update.downloadURL.absoluteString, "https://github.com/floating0516/ToCreate-api/releases/download/v0.1.1/ToCreate.dmg")
     }
 
+    func testUpdateDownloadPlannerUsesVersionedDmgInDownloads() {
+        let downloads = URL(fileURLWithPath: "/Users/test/Downloads", isDirectory: true)
+        let destination = UpdateDownloadPlanner.destinationURL(
+            for: AppUpdateInfo(
+                version: "0.1.2",
+                downloadURL: URL(string: "https://example.com/ToCreate.dmg")!,
+                releasePageURL: URL(string: "https://example.com/release")!,
+                releaseNotes: ""
+            ),
+            downloadsDirectory: downloads
+        )
+
+        XCTAssertEqual(destination.path, "/Users/test/Downloads/ToCreate-v0.1.2.dmg")
+    }
+
+    func testUpdateInstallerScriptMountsDmgCopiesAppAndRelaunches() {
+        let script = UpdateInstallerScript.makeScript(
+            dmgPath: "/Users/test/Downloads/ToCreate-v0.1.2.dmg",
+            appName: AppBranding.bundleAppName,
+            installPath: "/Applications/ToCreate.app"
+        )
+
+        XCTAssertTrue(script.contains("hdiutil attach"))
+        XCTAssertTrue(script.contains("/Users/test/Downloads/ToCreate-v0.1.2.dmg"))
+        XCTAssertTrue(script.contains("ditto"))
+        XCTAssertTrue(script.contains("/Applications/ToCreate.app"))
+        XCTAssertTrue(script.contains("open \"$INSTALL_PATH\""))
+        XCTAssertTrue(script.contains("ToCreate.app"))
+    }
+
     func testVersionComparatorHandlesSemanticVersions() {
         XCTAssertTrue(VersionComparator.isRemoteVersion("0.1.1", newerThan: "0.1.0"))
         XCTAssertTrue(VersionComparator.isRemoteVersion("0.1.10", newerThan: "0.1.2"))
@@ -314,6 +344,10 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("checkForUpdatesFromMenu"))
         XCTAssertTrue(appSource.contains("showAboutWindow"))
         XCTAssertTrue(appSource.contains("api.github.com/repos/floating0516/ToCreate-api/releases/latest"))
+        XCTAssertTrue(appSource.contains("downloadAndOpenUpdate"))
+        XCTAssertTrue(appSource.contains("UpdateDownloadPlanner.destinationURL"))
+        XCTAssertTrue(appSource.contains("installAndRelaunchUpdate"))
+        XCTAssertTrue(appSource.contains("UpdateInstallerScript.makeScript"))
         XCTAssertTrue(appSource.contains("启动时自动检查更新"))
         XCTAssertTrue(StatusMenuPresentation.statusMenuActionTitles.contains("检查更新"))
     }

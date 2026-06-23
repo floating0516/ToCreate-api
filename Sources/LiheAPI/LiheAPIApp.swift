@@ -958,8 +958,86 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         alert.addButton(withTitle: "稍后")
 
         if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(update.downloadURL)
+            downloadAndOpenUpdate(update)
         }
+    }
+
+    private func downloadAndOpenUpdate(_ update: AppUpdateInfo) {
+        let downloadsDirectory = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads", isDirectory: true)
+        let destinationURL = UpdateDownloadPlanner.destinationURL(for: update, downloadsDirectory: downloadsDirectory)
+
+        URLSession.shared.downloadTask(with: update.downloadURL) { [weak self] temporaryURL, _, error in
+            guard let self else {
+                return
+            }
+
+            if let error {
+                DispatchQueue.main.async {
+                    self.showUpdateDownloadFailed(error.localizedDescription)
+                }
+                return
+            }
+
+            guard let temporaryURL else {
+                DispatchQueue.main.async {
+                    self.showUpdateDownloadFailed("没有收到下载文件。")
+                }
+                return
+            }
+
+            do {
+                try FileManager.default.createDirectory(
+                    at: downloadsDirectory,
+                    withIntermediateDirectories: true
+                )
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try FileManager.default.removeItem(at: destinationURL)
+                }
+                try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
+
+                DispatchQueue.main.async {
+                    self.installAndRelaunchUpdate(from: destinationURL)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.showUpdateDownloadFailed(error.localizedDescription)
+                }
+            }
+        }.resume()
+    }
+
+    private func installAndRelaunchUpdate(from dmgURL: URL) {
+        let installPath = Bundle.main.bundleURL.path
+        let script = UpdateInstallerScript.makeScript(
+            dmgPath: dmgURL.path,
+            appName: AppBranding.bundleAppName,
+            installPath: installPath
+        )
+        let scriptURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tocreate-install-update-\(UUID().uuidString).sh")
+
+        do {
+            try script.write(to: scriptURL, atomically: true, encoding: .utf8)
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/bash")
+            process.arguments = [scriptURL.path]
+            try process.run()
+
+            NSApp.terminate(nil)
+        } catch {
+            showUpdateDownloadFailed("更新已下载，但自动安装失败：\(error.localizedDescription)\n\n安装包位置：\(dmgURL.path)")
+            NSWorkspace.shared.open(dmgURL)
+        }
+    }
+
+    private func showUpdateDownloadFailed(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "下载更新失败"
+        alert.informativeText = message
+        alert.addButton(withTitle: "好")
+        alert.runModal()
     }
 
     private func showUpdateCheckFailed(_ message: String) {
