@@ -13,6 +13,30 @@ bash scripts/package_app.sh
 
 - `dist/ToCreate.dmg`
 
+## 发布新版
+
+发布前先确保本地 Git 工作区是干净的，并且已经登录 GitHub CLI：
+
+```bash
+gh auth status
+```
+
+发布命令：
+
+```bash
+./scripts/release.sh 0.1.2 "这里填写本次更新说明"
+```
+
+脚本会自动完成：
+
+- 修改 `Resources/Info.plist` 里的版本号和 build 号
+- 运行 `swift test`
+- 重新生成 `dist/ToCreate.dmg`
+- 提交版本号变更
+- 创建并推送 `v版本号` tag
+- 创建 GitHub Release
+- 上传 `ToCreate.dmg`
+
 ## 测试安装
 
 打开 `dist/ToCreate.dmg`，把 `ToCreate` 拖入 Applications。当前版本使用本机临时签名，没有 Apple 公证，仅用于自己测试。

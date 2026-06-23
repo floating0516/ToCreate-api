@@ -298,4 +298,22 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("启动时自动检查更新"))
         XCTAssertTrue(StatusMenuPresentation.statusMenuActionTitles.contains("检查更新"))
     }
+
+    func testReleaseScriptAutomatesSafeGitHubReleaseFlow() throws {
+        let scriptPath = "/Users/lihe/Desktop/LiheAPI-Mac/scripts/release.sh"
+        let script = try String(contentsOfFile: scriptPath)
+
+        XCTAssertTrue(script.contains("Usage: ./scripts/release.sh <version> <release-notes>"))
+        XCTAssertTrue(script.contains("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
+        XCTAssertTrue(script.contains("git status --porcelain"))
+        XCTAssertTrue(script.contains("gh auth status"))
+        XCTAssertTrue(script.contains("git rev-parse \"v$VERSION\""))
+        XCTAssertTrue(script.contains("CFBundleShortVersionString"))
+        XCTAssertTrue(script.contains("CFBundleVersion"))
+        XCTAssertTrue(script.contains("swift test"))
+        XCTAssertTrue(script.contains("./scripts/package_app.sh"))
+        XCTAssertTrue(script.contains("dist/ToCreate.dmg"))
+        XCTAssertTrue(script.contains("git tag \"v$VERSION\""))
+        XCTAssertTrue(script.contains("gh release create \"v$VERSION\""))
+    }
 }

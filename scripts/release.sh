@@ -1,0 +1,76 @@
+#!/bin/bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+INFO_PLIST="$ROOT/Resources/Info.plist"
+DMG="$ROOT/dist/ToCreate.dmg"
+REPO="floating0516/ToCreate-api"
+
+usage() {
+    echo "Usage: ./scripts/release.sh <version> <release-notes>" >&2
+    echo "Example: ./scripts/release.sh 0.1.2 \"修复更新检查问题\"" >&2
+}
+
+if [[ $# -lt 2 ]]; then
+    usage
+    exit 2
+fi
+
+VERSION="$1"
+shift
+RELEASE_NOTES="$*"
+
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Version must use semantic format, for example: 0.1.2" >&2
+    exit 2
+fi
+
+cd "$ROOT"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Git working tree is not clean. Commit or stash current changes before releasing." >&2
+    git status --short >&2
+    exit 1
+fi
+
+if ! gh auth status >/dev/null 2>&1; then
+    echo "GitHub CLI is not authenticated. Run: gh auth login" >&2
+    exit 1
+fi
+
+if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+    echo "Tag v$VERSION already exists locally." >&2
+    exit 1
+fi
+
+if git ls-remote --tags origin "v$VERSION" | grep -q "v$VERSION"; then
+    echo "Tag v$VERSION already exists on origin." >&2
+    exit 1
+fi
+
+CURRENT_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
+NEXT_BUILD="$((CURRENT_BUILD + 1))"
+
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEXT_BUILD" "$INFO_PLIST"
+
+swift test
+./scripts/package_app.sh
+
+if [[ ! -f "$DMG" ]]; then
+    echo "Expected DMG was not created: $DMG" >&2
+    exit 1
+fi
+
+git add "$INFO_PLIST"
+git commit -m "release v$VERSION"
+git tag "v$VERSION"
+git push
+git push origin "v$VERSION"
+
+gh release create "v$VERSION" "$DMG" \
+    --repo "$REPO" \
+    --title "ToCreate v$VERSION" \
+    --notes "$RELEASE_NOTES"
+
+echo "Released ToCreate v$VERSION"
