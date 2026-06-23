@@ -100,7 +100,7 @@ enum StatusMenuPresentation {
     static let usageTextColorName = "controlAccentColor"
     static let channelTextColorName = "systemOrange"
     static let updatedAtTextColorName = "secondaryLabelColor"
-    static let statusMenuActionTitles = ["刷新状态", "打开主窗口", "偏好设置…", "退出"]
+    static let statusMenuActionTitles = ["刷新状态", "打开主窗口", "检查更新", "偏好设置…", "退出"]
     static let quitActionName = "quitApp"
     static let metricRowTitles = [AppBranding.displayName, "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
     static let showsChannelStatus = true
@@ -175,7 +175,7 @@ enum StatusMenuPresentation {
 
 enum PreferencesWindowPresentation {
     static let width: CGFloat = 460
-    static let height: CGFloat = 332
+    static let height: CGFloat = 364
     static let horizontalPadding: CGFloat = 28
     static let verticalPadding: CGFloat = 22
     static let rowSpacing: CGFloat = 12
@@ -304,6 +304,7 @@ struct AppPreferences: Equatable {
     var privacyModeEnabled: Bool
     var refreshInterval: RefreshIntervalOption
     var launchAtLoginEnabled: Bool
+    var autoCheckUpdatesEnabled: Bool
     var channelAlertEnabled: Bool
     var balanceAlertEnabled: Bool
     var balanceAlertThreshold: Double
@@ -314,6 +315,7 @@ struct AppPreferences: Equatable {
         privacyModeEnabled: false,
         refreshInterval: .off,
         launchAtLoginEnabled: false,
+        autoCheckUpdatesEnabled: false,
         channelAlertEnabled: true,
         balanceAlertEnabled: false,
         balanceAlertThreshold: 100,
@@ -327,6 +329,7 @@ struct PreferencesStore {
         static let privacyModeEnabled = "privacyModeEnabled"
         static let refreshInterval = "refreshInterval"
         static let launchAtLoginEnabled = "launchAtLoginEnabled"
+        static let autoCheckUpdatesEnabled = "autoCheckUpdatesEnabled"
         static let channelAlertEnabled = "channelAlertEnabled"
         static let balanceAlertEnabled = "balanceAlertEnabled"
         static let balanceAlertThreshold = "balanceAlertThreshold"
@@ -348,6 +351,7 @@ struct PreferencesStore {
             privacyModeEnabled: defaults.object(forKey: Key.privacyModeEnabled) as? Bool ?? base.privacyModeEnabled,
             refreshInterval: RefreshIntervalOption(rawValue: refreshRaw) ?? base.refreshInterval,
             launchAtLoginEnabled: defaults.object(forKey: Key.launchAtLoginEnabled) as? Bool ?? base.launchAtLoginEnabled,
+            autoCheckUpdatesEnabled: defaults.object(forKey: Key.autoCheckUpdatesEnabled) as? Bool ?? base.autoCheckUpdatesEnabled,
             channelAlertEnabled: defaults.object(forKey: Key.channelAlertEnabled) as? Bool ?? base.channelAlertEnabled,
             balanceAlertEnabled: defaults.object(forKey: Key.balanceAlertEnabled) as? Bool ?? base.balanceAlertEnabled,
             balanceAlertThreshold: defaults.object(forKey: Key.balanceAlertThreshold) as? Double ?? base.balanceAlertThreshold,
@@ -360,6 +364,7 @@ struct PreferencesStore {
         defaults.set(preferences.privacyModeEnabled, forKey: Key.privacyModeEnabled)
         defaults.set(preferences.refreshInterval.rawValue, forKey: Key.refreshInterval)
         defaults.set(preferences.launchAtLoginEnabled, forKey: Key.launchAtLoginEnabled)
+        defaults.set(preferences.autoCheckUpdatesEnabled, forKey: Key.autoCheckUpdatesEnabled)
         defaults.set(preferences.channelAlertEnabled, forKey: Key.channelAlertEnabled)
         defaults.set(preferences.balanceAlertEnabled, forKey: Key.balanceAlertEnabled)
         defaults.set(preferences.balanceAlertThreshold, forKey: Key.balanceAlertThreshold)
@@ -384,6 +389,81 @@ struct StatusMetricDisplay {
 
     var apiKeyCountText: String {
         preferences.privacyModeEnabled ? "已隐藏" : apiKeyCount.map { "\(MetricsFormatter.integer($0)) 个" } ?? "—"
+    }
+}
+
+struct AppUpdateInfo: Equatable {
+    let version: String
+    let downloadURL: URL
+    let releasePageURL: URL
+    let releaseNotes: String
+}
+
+enum VersionComparator {
+    static func isRemoteVersion(_ remoteVersion: String, newerThan currentVersion: String) -> Bool {
+        let remote = numericComponents(from: remoteVersion)
+        let current = numericComponents(from: currentVersion)
+        let count = max(remote.count, current.count)
+
+        for index in 0..<count {
+            let remotePart = index < remote.count ? remote[index] : 0
+            let currentPart = index < current.count ? current[index] : 0
+            if remotePart > currentPart {
+                return true
+            }
+            if remotePart < currentPart {
+                return false
+            }
+        }
+        return false
+    }
+
+    private static func numericComponents(from version: String) -> [Int] {
+        version
+            .trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+            .split(separator: ".")
+            .map { component in
+                let digits = component.prefix { $0.isNumber }
+                return Int(digits) ?? 0
+            }
+    }
+}
+
+enum GitHubReleaseParser {
+    enum ParserError: Error {
+        case invalidPayload
+        case missingReleaseURL
+        case missingAsset
+    }
+
+    static func parseLatestRelease(_ data: Data, assetName: String) throws -> AppUpdateInfo {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tagName = object["tag_name"] as? String else {
+            throw ParserError.invalidPayload
+        }
+
+        guard let releasePageString = object["html_url"] as? String,
+              let releasePageURL = URL(string: releasePageString) else {
+            throw ParserError.missingReleaseURL
+        }
+
+        guard let assets = object["assets"] as? [[String: Any]],
+              let asset = assets.first(where: { ($0["name"] as? String) == assetName }),
+              let downloadString = asset["browser_download_url"] as? String,
+              let downloadURL = URL(string: downloadString) else {
+            throw ParserError.missingAsset
+        }
+
+        return AppUpdateInfo(
+            version: normalizedVersion(tagName),
+            downloadURL: downloadURL,
+            releasePageURL: releasePageURL,
+            releaseNotes: object["body"] as? String ?? ""
+        )
+    }
+
+    private static func normalizedVersion(_ tagName: String) -> String {
+        tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
     }
 }
 

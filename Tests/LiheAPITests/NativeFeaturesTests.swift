@@ -88,7 +88,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testStatusMenuKeepsOnlyEssentialActions() {
-        XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "偏好设置…", "退出"])
+        XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "检查更新", "偏好设置…", "退出"])
         XCTAssertEqual(StatusMenuPresentation.quitActionName, "quitApp")
     }
 
@@ -98,7 +98,7 @@ final class NativeFeaturesTests: XCTestCase {
             ["ToCreate", "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
         )
         XCTAssertTrue(StatusMenuPresentation.showsChannelStatus)
-        XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "偏好设置…", "退出"])
+        XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "检查更新", "偏好设置…", "退出"])
         XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.ok, "● 服务正常")
         XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.partial, "● 部分渠道异常")
         XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.unavailable, "● 服务不可用")
@@ -131,6 +131,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertFalse(preferences.privacyModeEnabled)
         XCTAssertEqual(preferences.refreshInterval, .off)
         XCTAssertFalse(preferences.launchAtLoginEnabled)
+        XCTAssertFalse(preferences.autoCheckUpdatesEnabled)
         XCTAssertTrue(preferences.channelAlertEnabled)
         XCTAssertFalse(preferences.balanceAlertEnabled)
         XCTAssertEqual(preferences.balanceAlertThreshold, 100)
@@ -155,6 +156,7 @@ final class NativeFeaturesTests: XCTestCase {
         preferences.privacyModeEnabled = true
         preferences.refreshInterval = .fiveMinutes
         preferences.launchAtLoginEnabled = true
+        preferences.autoCheckUpdatesEnabled = true
         preferences.balanceAlertEnabled = true
         preferences.balanceAlertThreshold = 42.5
         preferences.dailyCostAlertEnabled = true
@@ -202,7 +204,7 @@ final class NativeFeaturesTests: XCTestCase {
 
     func testPreferencesWindowUsesCompactAlignedLayout() throws {
         XCTAssertEqual(PreferencesWindowPresentation.width, 460)
-        XCTAssertEqual(PreferencesWindowPresentation.height, 332)
+        XCTAssertEqual(PreferencesWindowPresentation.height, 364)
         XCTAssertEqual(PreferencesWindowPresentation.labelColumnWidth, 108)
         XCTAssertEqual(PreferencesWindowPresentation.controlColumnWidth, 190)
         XCTAssertTrue(PreferencesWindowPresentation.layoutUsesAlignedGrid)
@@ -252,5 +254,48 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("#selector(NSText.paste(_:))"))
         XCTAssertTrue(appSource.contains("#selector(NSText.selectAll(_:))"))
         XCTAssertTrue(appSource.contains("keyEquivalent: \"v\""))
+    }
+
+    func testGitHubReleaseParserFindsToCreateDmgAsset() throws {
+        let json = """
+        {
+          "tag_name": "v0.1.1",
+          "html_url": "https://github.com/floating0516/ToCreate-api/releases/tag/v0.1.1",
+          "body": "修复问题并提升稳定性。",
+          "assets": [
+            {
+              "name": "ToCreate.dmg",
+              "browser_download_url": "https://github.com/floating0516/ToCreate-api/releases/download/v0.1.1/ToCreate.dmg"
+            }
+          ]
+        }
+        """
+
+        let update = try GitHubReleaseParser.parseLatestRelease(
+            Data(json.utf8),
+            assetName: AppBranding.dmgName
+        )
+
+        XCTAssertEqual(update.version, "0.1.1")
+        XCTAssertEqual(update.releaseNotes, "修复问题并提升稳定性。")
+        XCTAssertEqual(update.releasePageURL.absoluteString, "https://github.com/floating0516/ToCreate-api/releases/tag/v0.1.1")
+        XCTAssertEqual(update.downloadURL.absoluteString, "https://github.com/floating0516/ToCreate-api/releases/download/v0.1.1/ToCreate.dmg")
+    }
+
+    func testVersionComparatorHandlesSemanticVersions() {
+        XCTAssertTrue(VersionComparator.isRemoteVersion("0.1.1", newerThan: "0.1.0"))
+        XCTAssertTrue(VersionComparator.isRemoteVersion("0.1.10", newerThan: "0.1.2"))
+        XCTAssertFalse(VersionComparator.isRemoteVersion("0.1.0", newerThan: "0.1.0"))
+        XCTAssertFalse(VersionComparator.isRemoteVersion("0.1.0", newerThan: "0.1.1"))
+        XCTAssertTrue(VersionComparator.isRemoteVersion("v1.0.0", newerThan: "0.9.9"))
+    }
+
+    func testUpdateUIIsConnectedToGitHubReleases() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("checkForUpdatesFromMenu"))
+        XCTAssertTrue(appSource.contains("api.github.com/repos/floating0516/ToCreate-api/releases/latest"))
+        XCTAssertTrue(appSource.contains("启动时自动检查更新"))
+        XCTAssertTrue(StatusMenuPresentation.statusMenuActionTitles.contains("检查更新"))
     }
 }

@@ -37,6 +37,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var privacyCheckbox: NSButton?
     private var refreshIntervalPopup: NSPopUpButton?
     private var launchAtLoginCheckbox: NSButton?
+    private var autoCheckUpdatesCheckbox: NSButton?
     private var channelAlertCheckbox: NSButton?
     private var balanceAlertCheckbox: NSButton?
     private var balanceThresholdField: NSTextField?
@@ -45,6 +46,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var channelAlertIsActive = false
     private var balanceAlertIsActive = false
     private var dailyCostAlertIsActive = false
+    private let updateFeedURL = URL(string: "https://api.github.com/repos/floating0516/ToCreate-api/releases/latest")!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -56,6 +58,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         loadEntryPage()
         configureMetricsRefreshTimer()
         configureLaunchAtLogin(preferences.launchAtLoginEnabled, showErrors: false)
+        scheduleStartupUpdateCheckIfNeeded()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -213,8 +216,9 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         menu.addItem(makeRefreshMetricsMenuItem())
         menu.addItem(.separator())
         menu.addItem(withTitle: StatusMenuPresentation.statusMenuActionTitles[1], action: #selector(showWindow), keyEquivalent: "")
-        menu.addItem(withTitle: StatusMenuPresentation.statusMenuActionTitles[2], action: #selector(openPreferences), keyEquivalent: ",")
-        let quitItem = NSMenuItem(title: StatusMenuPresentation.statusMenuActionTitles[3], action: #selector(quitApp), keyEquivalent: "q")
+        menu.addItem(withTitle: StatusMenuPresentation.statusMenuActionTitles[2], action: #selector(checkForUpdatesFromMenu), keyEquivalent: "")
+        menu.addItem(withTitle: StatusMenuPresentation.statusMenuActionTitles[3], action: #selector(openPreferences), keyEquivalent: ",")
+        let quitItem = NSMenuItem(title: StatusMenuPresentation.statusMenuActionTitles[4], action: #selector(quitApp), keyEquivalent: "q")
         quitItem.image = nil
         quitItem.onStateImage = nil
         quitItem.offStateImage = nil
@@ -399,6 +403,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func checkForUpdatesFromMenu() {
+        checkForUpdates(silentWhenCurrent: false)
+    }
+
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }
@@ -408,6 +416,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "检查更新…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "退出 \(AppBranding.displayName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
@@ -697,6 +707,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         launchAtLoginCheckbox = launchAtLogin
         contentStack.addArrangedSubview(makePreferenceRow(label: "开机启动", control: launchAtLogin))
 
+        let autoCheckUpdates = NSButton(checkboxWithTitle: "启动时自动检查更新", target: nil, action: nil)
+        autoCheckUpdatesCheckbox = autoCheckUpdates
+        contentStack.addArrangedSubview(makePreferenceRow(label: "更新", control: autoCheckUpdates))
+
         let alertLabel = NSTextField(labelWithString: "提醒")
         alertLabel.font = NSFont.boldSystemFont(ofSize: 13)
         alertLabel.textColor = .secondaryLabelColor
@@ -808,6 +822,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             refreshIntervalPopup?.selectItem(at: index)
         }
         launchAtLoginCheckbox?.state = preferences.launchAtLoginEnabled ? .on : .off
+        autoCheckUpdatesCheckbox?.state = preferences.autoCheckUpdatesEnabled ? .on : .off
         channelAlertCheckbox?.state = preferences.channelAlertEnabled ? .on : .off
         balanceAlertCheckbox?.state = preferences.balanceAlertEnabled ? .on : .off
         balanceThresholdField?.doubleValue = preferences.balanceAlertThreshold
@@ -827,6 +842,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             privacyModeEnabled: privacyCheckbox?.state == .on,
             refreshInterval: selectedInterval,
             launchAtLoginEnabled: launchAtLoginCheckbox?.state == .on,
+            autoCheckUpdatesEnabled: autoCheckUpdatesCheckbox?.state == .on,
             channelAlertEnabled: channelAlertCheckbox?.state == .on,
             balanceAlertEnabled: balanceAlertCheckbox?.state == .on,
             balanceAlertThreshold: max(0, balanceThresholdField?.doubleValue ?? AppPreferences.default.balanceAlertThreshold),
@@ -843,6 +859,96 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         configureMetricsRefreshTimer()
         configureLaunchAtLogin(updated.launchAtLoginEnabled, showErrors: true)
         refreshMetricsForStatusMenu()
+    }
+
+    private func scheduleStartupUpdateCheckIfNeeded() {
+        guard preferences.autoCheckUpdatesEnabled else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.checkForUpdates(silentWhenCurrent: true)
+        }
+    }
+
+    private func checkForUpdates(silentWhenCurrent: Bool) {
+        var request = URLRequest(url: updateFeedURL)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("\(AppBranding.displayName)/\(currentAppVersion())", forHTTPHeaderField: "User-Agent")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            guard let self else {
+                return
+            }
+
+            if let error {
+                DispatchQueue.main.async {
+                    if !silentWhenCurrent {
+                        self.showUpdateCheckFailed(error.localizedDescription)
+                    }
+                }
+                return
+            }
+
+            guard let data else {
+                DispatchQueue.main.async {
+                    if !silentWhenCurrent {
+                        self.showUpdateCheckFailed("没有收到更新信息。")
+                    }
+                }
+                return
+            }
+
+            do {
+                let update = try GitHubReleaseParser.parseLatestRelease(data, assetName: AppBranding.dmgName)
+                DispatchQueue.main.async {
+                    self.handleUpdateCheckResult(update, silentWhenCurrent: silentWhenCurrent)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    if !silentWhenCurrent {
+                        self.showUpdateCheckFailed(error.localizedDescription)
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    private func handleUpdateCheckResult(_ update: AppUpdateInfo, silentWhenCurrent: Bool) {
+        let currentVersion = currentAppVersion()
+        guard VersionComparator.isRemoteVersion(update.version, newerThan: currentVersion) else {
+            if !silentWhenCurrent {
+                let alert = NSAlert()
+                alert.messageText = "当前已是最新版本"
+                alert.informativeText = "\(AppBranding.displayName) \(currentVersion)"
+                alert.addButton(withTitle: "好")
+                alert.runModal()
+            }
+            return
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "发现新版本 \(update.version)"
+        let notes = update.releaseNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+        alert.informativeText = notes.isEmpty ? "当前版本：\(currentVersion)" : "当前版本：\(currentVersion)\n\n\(notes)"
+        alert.addButton(withTitle: "下载更新")
+        alert.addButton(withTitle: "稍后")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(update.downloadURL)
+        }
+    }
+
+    private func showUpdateCheckFailed(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "检查更新失败"
+        alert.informativeText = message
+        alert.addButton(withTitle: "好")
+        alert.runModal()
+    }
+
+    private func currentAppVersion() -> String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
     }
 
     private func configureLaunchAtLogin(_ enabled: Bool, showErrors: Bool) {
