@@ -407,6 +407,27 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         checkForUpdates(silentWhenCurrent: false)
     }
 
+    @objc private func showAboutWindow() {
+        let about = AboutInfo(
+            appName: AppBranding.displayName,
+            version: currentAppVersion(),
+            build: currentBuildNumber(),
+            repositoryURL: AppBranding.repositoryURL,
+            updateFeedDescription: AppBranding.updateFeedDescription
+        )
+
+        let alert = NSAlert()
+        alert.messageText = about.appName
+        alert.informativeText = about.informativeText
+        alert.icon = NSApp.applicationIconImage
+        alert.addButton(withTitle: "打开 GitHub")
+        alert.addButton(withTitle: "好")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(about.repositoryURL)
+        }
+    }
+
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }
@@ -416,6 +437,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "关于 \(AppBranding.displayName)", action: #selector(showAboutWindow), keyEquivalent: "")
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "检查更新…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "退出 \(AppBranding.displayName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -949,6 +972,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
     private func currentAppVersion() -> String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+    }
+
+    private func currentBuildNumber() -> String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
     }
 
     private func configureLaunchAtLogin(_ enabled: Bool, showErrors: Bool) {

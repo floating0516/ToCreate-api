@@ -6,6 +6,29 @@ enum AppBranding {
     static let dmgName = "ToCreate.dmg"
     static let bundleAppName = "ToCreate.app"
     static let statusMessagePrefix = "ToCreate"
+    static let repositoryURL = URL(string: "https://github.com/floating0516/ToCreate-api")!
+    static let updateFeedDescription = "GitHub Releases"
+}
+
+struct AboutInfo {
+    let appName: String
+    let version: String
+    let build: String
+    let repositoryURL: URL
+    let updateFeedDescription: String
+
+    var displayVersion: String {
+        "\(version) (\(build))"
+    }
+
+    var informativeText: String {
+        """
+        版本：\(displayVersion)
+        仓库：\(repositoryURL.absoluteString)
+        更新源：\(updateFeedDescription)
+        更新方式：检查并下载 DMG
+        """
+    }
 }
 
 enum ClipboardFormatter {

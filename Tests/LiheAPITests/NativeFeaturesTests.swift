@@ -7,6 +7,24 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(AppBranding.dmgName, "ToCreate.dmg")
         XCTAssertEqual(AppBranding.bundleAppName, "ToCreate.app")
         XCTAssertEqual(AppBranding.statusMessagePrefix, "ToCreate")
+        XCTAssertEqual(AppBranding.repositoryURL.absoluteString, "https://github.com/floating0516/ToCreate-api")
+        XCTAssertEqual(AppBranding.updateFeedDescription, "GitHub Releases")
+    }
+
+    func testAboutInfoFormatsVersionRepositoryAndUpdateSource() {
+        let about = AboutInfo(
+            appName: AppBranding.displayName,
+            version: "0.1.1",
+            build: "2",
+            repositoryURL: AppBranding.repositoryURL,
+            updateFeedDescription: AppBranding.updateFeedDescription
+        )
+
+        XCTAssertEqual(about.displayVersion, "0.1.1 (2)")
+        XCTAssertTrue(about.informativeText.contains("版本：0.1.1 (2)"))
+        XCTAssertTrue(about.informativeText.contains("仓库：https://github.com/floating0516/ToCreate-api"))
+        XCTAssertTrue(about.informativeText.contains("更新源：GitHub Releases"))
+        XCTAssertTrue(about.informativeText.contains("更新方式：检查并下载 DMG"))
     }
 
     func testPageReferenceUsesURLWhenTitleIsMissing() {
@@ -294,6 +312,7 @@ final class NativeFeaturesTests: XCTestCase {
         let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
 
         XCTAssertTrue(appSource.contains("checkForUpdatesFromMenu"))
+        XCTAssertTrue(appSource.contains("showAboutWindow"))
         XCTAssertTrue(appSource.contains("api.github.com/repos/floating0516/ToCreate-api/releases/latest"))
         XCTAssertTrue(appSource.contains("启动时自动检查更新"))
         XCTAssertTrue(StatusMenuPresentation.statusMenuActionTitles.contains("检查更新"))
