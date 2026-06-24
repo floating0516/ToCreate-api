@@ -47,15 +47,13 @@ mkdir -p "$STAGING"
 
 ditto "$DERIVED_DATA/Build/Products/Release/ToCreate.app" "$APP"
 
-swift "$ROOT/scripts/generate_icon.swift" "$ICONSET" "$ROOT/Resources/AppIconSource.png"
-iconutil --convert icns "$ICONSET" --output "$ICON"
-cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
-
 xattr -cr "$APP"
 if [[ -n "$DEVELOPMENT_TEAM" ]]; then
-    codesign --force --sign "$SIGN_IDENTITY" --entitlements "$ROOT/ToCreateWidget/ToCreateWidget.entitlements" "$APP/Contents/PlugIns/ToCreateWidget.appex"
-    codesign --force --sign "$SIGN_IDENTITY" --entitlements "$ROOT/Resources/ToCreate.entitlements" "$APP"
+    echo "Keeping Xcode-managed development signature and provisioning profiles."
 else
+    swift "$ROOT/scripts/generate_icon.swift" "$ICONSET" "$ROOT/Resources/AppIconSource.png"
+    iconutil --convert icns "$ICONSET" --output "$ICON"
+    cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
     codesign --force --sign - --entitlements "$ROOT/ToCreateWidget/ToCreateWidget.entitlements" "$APP/Contents/PlugIns/ToCreateWidget.appex"
     codesign --force --sign - --entitlements "$ROOT/Resources/ToCreate.entitlements" "$APP"
 fi

@@ -55,7 +55,7 @@ gh auth status
 如果“小组件库”里搜不到 `ToCreate`，通常不是小组件代码没有打包，而是当前 DMG 使用本机临时签名。WidgetKit 对 extension 注册更严格，建议先在 Xcode 的 `Settings → Accounts` 登录 Apple ID，然后用开发签名重新打包：
 
 ```bash
-DEVELOPMENT_TEAM=PHYWQKM4ZQ bash scripts/package_app.sh
+DEVELOPMENT_TEAM=L269VPSDX3 bash scripts/package_app.sh
 ```
 
 如果 Xcode 提示找不到 provisioning profile，请在 Xcode 里确认账号已登录，并允许 Xcode 自动管理签名。

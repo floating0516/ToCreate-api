@@ -384,6 +384,16 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(plist.contains("<string>$(EXECUTABLE_NAME)</string>"))
     }
 
+    func testWidgetBuildUsesMacOS14MinimumForDesktopWidgets() throws {
+        let appPlist = try String(contentsOfFile: Self.projectFile("Resources/Info.plist"))
+        let project = try String(contentsOfFile: Self.projectFile("ToCreate.xcodeproj/project.pbxproj"))
+
+        XCTAssertTrue(appPlist.contains("<key>LSMinimumSystemVersion</key>"))
+        XCTAssertTrue(appPlist.contains("<string>14.0</string>"))
+        XCTAssertTrue(project.contains("MACOSX_DEPLOYMENT_TARGET = 14.0"))
+        XCTAssertFalse(project.contains("MACOSX_DEPLOYMENT_TARGET = 13.0"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
@@ -596,6 +606,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("CODE_SIGN_STYLE=Automatic"))
         XCTAssertTrue(script.contains("CODE_SIGNING_ALLOWED=NO"))
         XCTAssertTrue(script.contains("ditto \"$DERIVED_DATA/Build/Products/Release/ToCreate.app\" \"$APP\""))
+        XCTAssertTrue(script.contains("Keeping Xcode-managed development signature and provisioning profiles."))
         XCTAssertTrue(script.contains("ToCreateWidget.entitlements"))
         XCTAssertTrue(script.contains("Resources/ToCreate.entitlements"))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict \"$APP\""))
