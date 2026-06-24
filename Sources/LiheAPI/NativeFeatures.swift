@@ -125,10 +125,10 @@ enum StatusMenuPresentation {
     static let updatedAtTextColorName = "secondaryLabelColor"
     static let statusMenuActionTitles = ["刷新状态", "打开主窗口", "检查更新", "偏好设置…", "退出"]
     static let quitActionName = "quitApp"
-    static let metricRowTitles = [AppBranding.displayName, "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
-    static let showsChannelStatus = true
+    static let metricRowTitles = [AppBranding.displayName, "API 状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "更新于"]
+    static let showsChannelStatus = false
     static let labelColumnWidth: CGFloat = 72
-    static let serviceStatusTitles = (ok: "● 服务正常", partial: "● 部分渠道异常", unavailable: "● 服务不可用", offline: "● 未连接")
+    static let serviceStatusTitles = (ok: "● API 可连通", partial: "● API 待确认", unavailable: "● API 不可连通", offline: "● 未连接")
 
     static var balanceTextColor: NSColor {
         primaryTextColor
@@ -217,14 +217,11 @@ enum StatusBarState: Equatable {
     case offline
 
     static func from(ok: Int, abnormal: Int, unknown: Int) -> StatusBarState {
-        if abnormal > 0 {
-            return .unavailable
-        }
-        if unknown > 0 {
-            return .partial
-        }
         if ok > 0 {
             return .healthy
+        }
+        if abnormal > 0 || unknown > 0 {
+            return .partial
         }
         return .offline
     }
@@ -279,11 +276,11 @@ enum StatusBarState: Equatable {
         case .refreshing:
             return "\(AppBranding.statusMessagePrefix) 正在刷新"
         case .healthy:
-            return "\(AppBranding.statusMessagePrefix) 服务正常"
+            return "\(AppBranding.statusMessagePrefix) API 可连通"
         case .partial:
-            return "\(AppBranding.statusMessagePrefix) 部分渠道异常"
+            return "\(AppBranding.statusMessagePrefix) API 待确认"
         case .unavailable:
-            return "\(AppBranding.statusMessagePrefix) 服务不可用"
+            return "\(AppBranding.statusMessagePrefix) API 不可连通"
         case .offline:
             return "\(AppBranding.statusMessagePrefix) 未连接"
         }
@@ -412,6 +409,30 @@ struct StatusMetricDisplay {
 
     var apiKeyCountText: String {
         preferences.privacyModeEnabled ? "已隐藏" : apiKeyCount.map { "\(MetricsFormatter.integer($0)) 个" } ?? "—"
+    }
+}
+
+enum MetricPayloadParser {
+    static func doubleValue(_ value: Any?) -> Double? {
+        switch value {
+        case let number as Double:
+            return number
+        case let number as Int:
+            return Double(number)
+        case let number as NSNumber:
+            return number.doubleValue
+        case let string as String:
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return Double(trimmed)
+        default:
+            return nil
+        }
+    }
+}
+
+enum MetricValueCache {
+    static func replacingMissing(current: Double?, cached: Double?) -> Double? {
+        current ?? cached
     }
 }
 

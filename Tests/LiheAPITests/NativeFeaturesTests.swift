@@ -113,13 +113,13 @@ final class NativeFeaturesTests: XCTestCase {
     func testStatusMenuUsesFormalGroupedSections() {
         XCTAssertEqual(
             StatusMenuPresentation.metricRowTitles,
-            ["ToCreate", "服务状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "渠道", "更新于"]
+            ["ToCreate", "API 状态", "今日用量", "请求", "Tokens", "费用", "账户", "余额", "API 密钥", "更新于"]
         )
-        XCTAssertTrue(StatusMenuPresentation.showsChannelStatus)
+        XCTAssertFalse(StatusMenuPresentation.showsChannelStatus)
         XCTAssertEqual(StatusMenuPresentation.statusMenuActionTitles, ["刷新状态", "打开主窗口", "检查更新", "偏好设置…", "退出"])
-        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.ok, "● 服务正常")
-        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.partial, "● 部分渠道异常")
-        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.unavailable, "● 服务不可用")
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.ok, "● API 可连通")
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.partial, "● API 待确认")
+        XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.unavailable, "● API 不可连通")
         XCTAssertEqual(StatusMenuPresentation.serviceStatusTitles.offline, "● 未连接")
         XCTAssertEqual(StatusMenuPresentation.labelColumnWidth, 72)
     }
@@ -211,6 +211,40 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(privateDisplay.apiKeyCountText, "已隐藏")
     }
 
+    func testMetricPayloadParserAcceptsStringNumbers() {
+        XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
+        XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
+        XCTAssertNil(MetricPayloadParser.doubleValue("not-a-number"))
+    }
+
+    func testMetricsScriptUsesFallbackBalanceFields() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("firstNumber("))
+        XCTAssertTrue(appSource.contains("me && me.user && me.user.balance"))
+        XCTAssertTrue(appSource.contains("stats && stats.balance"))
+        XCTAssertTrue(appSource.contains("stats && stats.remaining_balance"))
+    }
+
+    func testMetricsRefreshRetriesAfterPageLoadAndMissingBalance() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertTrue(appSource.contains("scheduleMetricsRefreshAfterPageLoad"))
+        XCTAssertTrue(appSource.contains("scheduleBalanceRetryIfNeeded"))
+        XCTAssertTrue(appSource.contains("balanceRetryAttemptsRemaining"))
+        XCTAssertTrue(appSource.contains("DispatchQueue.main.asyncAfter"))
+    }
+
+    func testMetricsKeepLastSuccessfulBalanceWhenRefreshPayloadOmitsIt() throws {
+        XCTAssertEqual(MetricValueCache.replacingMissing(current: nil, cached: 399_478.22), 399_478.22)
+        XCTAssertEqual(MetricValueCache.replacingMissing(current: 12.5, cached: 399_478.22), 12.5)
+
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        XCTAssertTrue(appSource.contains("lastSuccessfulBalance"))
+        XCTAssertTrue(appSource.contains("MetricValueCache.replacingMissing(current: balance, cached: lastSuccessfulBalance)"))
+        XCTAssertFalse(appSource.contains("setBalanceMenuTitle(metricTitle(\"余额\", \"刷新中…\"))"))
+    }
+
     func testPreferencesWindowIsARealSettingsWindow() throws {
         let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
 
@@ -235,10 +269,18 @@ final class NativeFeaturesTests: XCTestCase {
 
     func testStatusBarStateReflectsServiceHealth() {
         XCTAssertEqual(StatusBarState.from(ok: 2, abnormal: 0, unknown: 0), .healthy)
-        XCTAssertEqual(StatusBarState.from(ok: 1, abnormal: 0, unknown: 1), .partial)
-        XCTAssertEqual(StatusBarState.from(ok: 1, abnormal: 1, unknown: 0), .unavailable)
+        XCTAssertEqual(StatusBarState.from(ok: 1, abnormal: 0, unknown: 1), .healthy)
+        XCTAssertEqual(StatusBarState.from(ok: 1, abnormal: 1, unknown: 0), .healthy)
+        XCTAssertEqual(StatusBarState.from(ok: 0, abnormal: 1, unknown: 0), .partial)
         XCTAssertEqual(StatusBarState.from(ok: 0, abnormal: 0, unknown: 0), .offline)
         XCTAssertEqual(StatusBarState.refreshing, .refreshing)
+    }
+
+    func testStatusMenuRemovesChannelRowFromAccountSection() throws {
+        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+
+        XCTAssertFalse(appSource.contains("menu.addItem(channelMenuItem)"))
+        XCTAssertFalse(appSource.contains("setChannelMenuTitle(metricTitle(\"渠道\""))
     }
 
     func testStatusBarStateDefinesIconColorAndAccessibilityLabel() {

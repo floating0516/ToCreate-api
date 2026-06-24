@@ -27,7 +27,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var requestsMenuItem: NSMenuItem!
     private var costMenuItem: NSMenuItem!
     private var tokensMenuItem: NSMenuItem!
-    private var channelMenuItem: NSMenuItem!
     private var apiKeysMenuItem: NSMenuItem!
     private var updatedAtMenuItem: NSMenuItem!
     private let preferencesStore = PreferencesStore()
@@ -46,6 +45,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var channelAlertIsActive = false
     private var balanceAlertIsActive = false
     private var dailyCostAlertIsActive = false
+    private var balanceRetryAttemptsRemaining = 0
+    private var lastSuccessfulBalance: Double?
     private let updateFeedURL = URL(string: "https://api.github.com/repos/floating0516/ToCreate-api/releases/latest")!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -195,7 +196,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         requestsMenuItem = informationalMenuItem(metricTitle("请求", "加载中…"), color: StatusMenuPresentation.usageTextColor)
         costMenuItem = informationalMenuItem(metricTitle("费用", "加载中…"), color: StatusMenuPresentation.costTextColor)
         tokensMenuItem = informationalMenuItem(metricTitle("Tokens", "加载中…"), color: StatusMenuPresentation.tokensTextColor)
-        channelMenuItem = informationalMenuItem(metricTitle("渠道", "加载中…"), color: StatusMenuPresentation.channelTextColor)
         apiKeysMenuItem = informationalMenuItem(metricTitle("API 密钥", "加载中…"), color: StatusMenuPresentation.apiKeysTextColor)
         updatedAtMenuItem = informationalMenuItem(metricTitle("更新于", "—"), color: StatusMenuPresentation.updatedAtTextColor)
 
@@ -210,7 +210,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         menu.addItem(sectionHeaderMenuItem("账户"))
         menu.addItem(balanceMenuItem)
         menu.addItem(apiKeysMenuItem)
-        menu.addItem(channelMenuItem)
         menu.addItem(.separator())
         menu.addItem(updatedAtMenuItem)
         menu.addItem(makeRefreshMetricsMenuItem())
@@ -324,13 +323,13 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         setInformationalMenuItem(balanceMenuItem, title: title, color: StatusMenuPresentation.balanceTextColor)
     }
 
-    private func setServiceStatusMenuTitle(_ title: String, ok: Int = 0, abnormal: Int = 0, unknown: Int = 1) {
+    private func setServiceStatusMenuTitle(_ title: String, ok: Int = 0, abnormal: Int = 0, unknown: Int = 1, state: StatusBarState? = nil) {
         setInformationalMenuItem(
             serviceStatusMenuItem,
             title: title,
             color: StatusMenuPresentation.channelTextColor(ok: ok, abnormal: abnormal, unknown: unknown)
         )
-        updateStatusBarIcon(.from(ok: ok, abnormal: abnormal, unknown: unknown))
+        updateStatusBarIcon(state ?? .from(ok: ok, abnormal: abnormal, unknown: unknown))
     }
 
     private func setRefreshingStatusMenuTitle(_ title: String) {
@@ -364,14 +363,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
     private func setTokensMenuTitle(_ title: String) {
         setInformationalMenuItem(tokensMenuItem, title: title, color: StatusMenuPresentation.tokensTextColor)
-    }
-
-    private func setChannelMenuTitle(_ title: String, ok: Int = 0, abnormal: Int = 0, unknown: Int = 1) {
-        setInformationalMenuItem(
-            channelMenuItem,
-            title: title,
-            color: StatusMenuPresentation.channelTextColor(ok: ok, abnormal: abnormal, unknown: unknown)
-        )
     }
 
     private func setAPIKeysMenuTitle(_ title: String) {
@@ -567,17 +558,38 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         refreshMetricsForStatusMenu()
     }
 
+    private func scheduleMetricsRefreshAfterPageLoad() {
+        balanceRetryAttemptsRemaining = 3
+        refreshMetricsForStatusMenu()
+        scheduleMetricsRefresh(after: 0.8)
+        scheduleMetricsRefresh(after: 2.0)
+    }
+
+    private func scheduleMetricsRefresh(after delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.refreshMetricsForStatusMenu()
+        }
+    }
+
+    private func scheduleBalanceRetryIfNeeded(balance: Double?) {
+        guard balance == nil, balanceRetryAttemptsRemaining > 0 else {
+            balanceRetryAttemptsRemaining = 0
+            return
+        }
+
+        balanceRetryAttemptsRemaining -= 1
+        scheduleMetricsRefresh(after: 1.0)
+    }
+
     private func refreshMetricsForStatusMenu() {
         guard webView != nil else {
             return
         }
 
         setRefreshingStatusMenuTitle("正在刷新…")
-        setBalanceMenuTitle(metricTitle("余额", "刷新中…"))
         setRequestsMenuTitle(metricTitle("请求", "刷新中…"))
         setCostMenuTitle(metricTitle("费用", "刷新中…"))
         setTokensMenuTitle(metricTitle("Tokens", "刷新中…"))
-        setChannelMenuTitle(metricTitle("渠道", "刷新中…"))
         setAPIKeysMenuTitle(metricTitle("API 密钥", "刷新中…"))
 
         webView.evaluateJavaScript(Self.metricsJavaScript) { [weak self] _, error in
@@ -586,11 +598,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             }
             DispatchQueue.main.async {
                 self.setBalanceMenuTitle("余额：读取失败")
-                self.setServiceStatusMenuTitle("● 读取失败", ok: 0, abnormal: 1, unknown: 0)
+                self.setServiceStatusMenuTitle("● 读取失败", ok: 0, abnormal: 1, unknown: 0, state: .unavailable)
                 self.setRequestsMenuTitle(self.metricTitle("请求", "读取失败"))
                 self.setCostMenuTitle(self.metricTitle("费用", "读取失败"))
                 self.setTokensMenuTitle(self.metricTitle("Tokens", "读取失败"))
-                self.setChannelMenuTitle(self.metricTitle("渠道", "读取失败"))
                 self.setAPIKeysMenuTitle(self.metricTitle("API 密钥", "读取失败"))
                 self.setUpdatedAtMenuTitle("错误：\(error.localizedDescription)")
             }
@@ -610,11 +621,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             json = serialized
         } else {
             setBalanceMenuTitle("余额：无法解析")
-            setServiceStatusMenuTitle("● 无法解析", ok: 0, abnormal: 1, unknown: 0)
+            setServiceStatusMenuTitle("● 无法解析", ok: 0, abnormal: 1, unknown: 0, state: .unavailable)
             setRequestsMenuTitle(metricTitle("请求", "无法解析"))
             setCostMenuTitle(metricTitle("费用", "无法解析"))
             setTokensMenuTitle(metricTitle("Tokens", "无法解析"))
-            setChannelMenuTitle(metricTitle("渠道", "无法解析"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "无法解析"))
             setUpdatedAtMenuTitle(metricTitle("更新于", "—"))
             return
@@ -627,11 +637,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         guard let data = json.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             setBalanceMenuTitle("余额：无法解析")
-            setServiceStatusMenuTitle("● 无法解析", ok: 0, abnormal: 1, unknown: 0)
+            setServiceStatusMenuTitle("● 无法解析", ok: 0, abnormal: 1, unknown: 0, state: .unavailable)
             setRequestsMenuTitle(metricTitle("请求", "无法解析"))
             setCostMenuTitle(metricTitle("费用", "无法解析"))
             setTokensMenuTitle(metricTitle("Tokens", "无法解析"))
-            setChannelMenuTitle(metricTitle("渠道", "无法解析"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "无法解析"))
             setUpdatedAtMenuTitle(metricTitle("更新于", "—"))
             return
@@ -643,46 +652,38 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             setRequestsMenuTitle(metricTitle("请求", "—"))
             setCostMenuTitle(metricTitle("费用", "—"))
             setTokensMenuTitle(metricTitle("Tokens", "—"))
-            setChannelMenuTitle(metricTitle("渠道", "—"), ok: 0, abnormal: 0, unknown: 0)
             setAPIKeysMenuTitle(metricTitle("API 密钥", "—"))
             setUpdatedAtMenuTitle("提示：\(errorMessage)")
             return
         }
 
-        let balance = object["balance"] as? Double
-        let todayRequests = object["todayRequests"] as? Double
-        let todayCost = object["todayCost"] as? Double
-        let todayTokens = object["todayTokens"] as? Double
+        let balance = MetricPayloadParser.doubleValue(object["balance"])
+        let todayRequests = MetricPayloadParser.doubleValue(object["todayRequests"])
+        let todayCost = MetricPayloadParser.doubleValue(object["todayCost"])
+        let todayTokens = MetricPayloadParser.doubleValue(object["todayTokens"])
         let channel = object["channels"] as? [String: Any]
-        let ok = channel?["ok"] as? Int ?? 0
         let abnormal = channel?["abnormal"] as? Int ?? 0
-        let unknown = channel?["unknown"] as? Int ?? 0
-        let apiKeyCount = object["apiKeyCount"] as? Double
+        let apiKeyCount = MetricPayloadParser.doubleValue(object["apiKeyCount"])
+        let displayBalance = MetricValueCache.replacingMissing(current: balance, cached: lastSuccessfulBalance)
+        if let balance {
+            lastSuccessfulBalance = balance
+        }
         let metricDisplay = StatusMetricDisplay(
-            balance: balance,
+            balance: displayBalance,
             todayCost: todayCost,
             apiKeyCount: apiKeyCount,
             preferences: preferences
         )
 
-        if abnormal > 0 {
-            setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.unavailable, ok: ok, abnormal: abnormal, unknown: unknown)
-        } else if unknown > 0 {
-            setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.partial, ok: ok, abnormal: abnormal, unknown: unknown)
-        } else if ok > 0 {
-            setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.ok, ok: ok, abnormal: abnormal, unknown: unknown)
-        } else {
-            setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.offline, ok: ok, abnormal: abnormal, unknown: unknown)
-        }
+        setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.ok, ok: 1, abnormal: 0, unknown: 0)
 
-        let total = ok + abnormal + unknown
         setRequestsMenuTitle(metricTitle("请求", "\(MetricsFormatter.integer(todayRequests)) 次"))
         setTokensMenuTitle(metricTitle("Tokens", MetricsFormatter.compactInteger(todayTokens)))
         setCostMenuTitle(metricTitle("费用", metricDisplay.todayCostText))
         setBalanceMenuTitle(metricTitle("余额", metricDisplay.balanceText))
-        setChannelMenuTitle(metricTitle("渠道", "\(ok) / \(total) 可用"), ok: ok, abnormal: abnormal, unknown: unknown)
         setAPIKeysMenuTitle(metricTitle("API 密钥", metricDisplay.apiKeyCountText))
         setUpdatedAtMenuTitle(metricTitle("更新于", DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)))
+        scheduleBalanceRetryIfNeeded(balance: balance)
         evaluateAlerts(balance: balance, todayCost: todayCost, abnormalChannels: abnormal)
     }
 
@@ -1167,7 +1168,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         updateToolbarState()
-        refreshMetricsForStatusMenu()
+        scheduleMetricsRefreshAfterPageLoad()
     }
 
     func userNotificationCenter(
@@ -1250,6 +1251,14 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
       function numberValue(value) {
         const number = Number(value);
         return Number.isFinite(number) ? number : null;
+      }
+
+      function firstNumber(values) {
+        for (const value of values) {
+          const number = numberValue(value);
+          if (number !== null) return number;
+        }
+        return null;
       }
 
       async function optionalApi(paths) {
@@ -1339,7 +1348,15 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
           channelCounts[classifyStatus(entry.monitor, entry.status)] += 1;
         }
         window.webkit.messageHandlers.liheMetrics.postMessage(JSON.stringify({
-          balance: numberValue(me && me.balance),
+          balance: firstNumber([
+            me && me.balance,
+            me && me.user && me.user.balance,
+            me && me.wallet && me.wallet.balance,
+            me && me.account && me.account.balance,
+            stats && stats.balance,
+            stats && stats.remaining_balance,
+            stats && stats.remainingBalance
+          ]),
           todayRequests: numberValue(stats && stats.today_requests),
           todayCost: numberValue(stats && (stats.today_actual_cost ?? stats.today_cost)),
           todayTokens: numberValue(stats && stats.today_tokens),
