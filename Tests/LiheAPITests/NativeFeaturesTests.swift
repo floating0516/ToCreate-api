@@ -355,6 +355,16 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(bundle.contains("@main"))
     }
 
+    func testAppAndWidgetEntitlementsUseSameAppGroup() throws {
+        let appEntitlements = try String(contentsOfFile: Self.projectFile("Resources/ToCreate.entitlements"))
+        let widgetEntitlements = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidget.entitlements"))
+
+        XCTAssertTrue(appEntitlements.contains("group.chat.lihe.api.mac"))
+        XCTAssertTrue(widgetEntitlements.contains("group.chat.lihe.api.mac"))
+        XCTAssertTrue(appEntitlements.contains("com.apple.security.application-groups"))
+        XCTAssertTrue(widgetEntitlements.contains("com.apple.security.application-groups"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
