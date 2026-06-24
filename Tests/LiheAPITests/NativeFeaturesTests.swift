@@ -211,6 +211,78 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(privateDisplay.apiKeyCountText, "已隐藏")
     }
 
+    func testWidgetSnapshotCodableRoundTrip() throws {
+        let snapshot = WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 399_478.22,
+            todayRequests: 36,
+            todayTokens: 338_100,
+            todayCost: 0.12,
+            apiKeyCount: 6,
+            updatedAt: Date(timeIntervalSince1970: 1_782_300_000),
+            privacyModeEnabled: false
+        )
+
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(WidgetSnapshot.self, from: data)
+
+        XCTAssertEqual(decoded, snapshot)
+    }
+
+    func testWidgetSnapshotDisplayHonorsPrivacyMode() {
+        let publicSnapshot = WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 399_478.22,
+            todayRequests: 36,
+            todayTokens: 338_100,
+            todayCost: 0.12,
+            apiKeyCount: 6,
+            updatedAt: Date(timeIntervalSince1970: 1_782_300_000),
+            privacyModeEnabled: false
+        )
+
+        let privateSnapshot = WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 399_478.22,
+            todayRequests: 36,
+            todayTokens: 338_100,
+            todayCost: 0.12,
+            apiKeyCount: 6,
+            updatedAt: Date(timeIntervalSince1970: 1_782_300_000),
+            privacyModeEnabled: true
+        )
+
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: publicSnapshot).balanceText, "$399,478.22")
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: publicSnapshot).todayCostText, "$0.12")
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: publicSnapshot).apiKeyCountText, "6 个")
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: publicSnapshot).tokensText, "338.1K")
+
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: privateSnapshot).balanceText, "已隐藏")
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: privateSnapshot).todayCostText, "已隐藏")
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: privateSnapshot).apiKeyCountText, "已隐藏")
+        XCTAssertEqual(WidgetSnapshotDisplay(snapshot: privateSnapshot).tokensText, "338.1K")
+    }
+
+    func testWidgetSnapshotDisplayDetectsStaleData() {
+        let oldSnapshot = WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 1,
+            todayRequests: 2,
+            todayTokens: 3,
+            todayCost: 4,
+            apiKeyCount: 5,
+            updatedAt: Date(timeIntervalSince1970: 100),
+            privacyModeEnabled: false
+        )
+
+        XCTAssertTrue(
+            WidgetSnapshotDisplay(
+                snapshot: oldSnapshot,
+                now: Date(timeIntervalSince1970: 100 + 601)
+            ).isStale
+        )
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)

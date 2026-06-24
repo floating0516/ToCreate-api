@@ -8,7 +8,21 @@ let package = Package(
         .executable(name: "LiheAPI", targets: ["LiheAPI"])
     ],
     targets: [
-        .executableTarget(name: "LiheAPI"),
+        .executableTarget(
+            name: "LiheAPI",
+            path: ".",
+            exclude: [
+                "README.md",
+                "Resources",
+                "Tests",
+                "docs",
+                "scripts"
+            ],
+            sources: [
+                "Sources/LiheAPI",
+                "Shared"
+            ]
+        ),
         .testTarget(name: "LiheAPITests", dependencies: ["LiheAPI"])
     ]
 )
