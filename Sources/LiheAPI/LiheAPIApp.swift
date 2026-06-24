@@ -30,6 +30,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var apiKeysMenuItem: NSMenuItem!
     private var updatedAtMenuItem: NSMenuItem!
     private let preferencesStore = PreferencesStore()
+    private let widgetSnapshotStore = WidgetSnapshotStore()
     private lazy var preferences = preferencesStore.load()
     private var metricsRefreshTimer: Timer?
     private var preferencesWindow: NSWindow?
@@ -633,6 +634,33 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         handleMetricsPayload(json)
     }
 
+    private func writeWidgetSnapshot(
+        apiStatus: WidgetAPIStatus,
+        balance: Double?,
+        todayRequests: Double?,
+        todayTokens: Double?,
+        todayCost: Double?,
+        apiKeyCount: Double?,
+        updatedAt: Date
+    ) {
+        let snapshot = WidgetSnapshot(
+            apiStatus: apiStatus,
+            balance: balance,
+            todayRequests: todayRequests,
+            todayTokens: todayTokens,
+            todayCost: todayCost,
+            apiKeyCount: apiKeyCount,
+            updatedAt: updatedAt,
+            privacyModeEnabled: preferences.privacyModeEnabled
+        )
+
+        do {
+            try widgetSnapshotStore.save(snapshot)
+        } catch {
+            NSLog("ToCreate widget snapshot save failed: %@", error.localizedDescription)
+        }
+    }
+
     private func handleMetricsPayload(_ json: String) {
         guard let data = json.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -654,6 +682,15 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             setTokensMenuTitle(metricTitle("Tokens", "—"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "—"))
             setUpdatedAtMenuTitle("提示：\(errorMessage)")
+            writeWidgetSnapshot(
+                apiStatus: .unreachable,
+                balance: lastSuccessfulBalance,
+                todayRequests: nil,
+                todayTokens: nil,
+                todayCost: nil,
+                apiKeyCount: nil,
+                updatedAt: Date()
+            )
             return
         }
 
@@ -677,12 +714,23 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.ok, ok: 1, abnormal: 0, unknown: 0)
 
+        let updatedAt = Date()
+        writeWidgetSnapshot(
+            apiStatus: .reachable,
+            balance: displayBalance,
+            todayRequests: todayRequests,
+            todayTokens: todayTokens,
+            todayCost: todayCost,
+            apiKeyCount: apiKeyCount,
+            updatedAt: updatedAt
+        )
+
         setRequestsMenuTitle(metricTitle("请求", "\(MetricsFormatter.integer(todayRequests)) 次"))
         setTokensMenuTitle(metricTitle("Tokens", MetricsFormatter.compactInteger(todayTokens)))
         setCostMenuTitle(metricTitle("费用", metricDisplay.todayCostText))
         setBalanceMenuTitle(metricTitle("余额", metricDisplay.balanceText))
         setAPIKeysMenuTitle(metricTitle("API 密钥", metricDisplay.apiKeyCountText))
-        setUpdatedAtMenuTitle(metricTitle("更新于", DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)))
+        setUpdatedAtMenuTitle(metricTitle("更新于", DateFormatter.localizedString(from: updatedAt, dateStyle: .none, timeStyle: .medium)))
         scheduleBalanceRetryIfNeeded(balance: balance)
         evaluateAlerts(balance: balance, todayCost: todayCost, abnormalChannels: abnormal)
     }

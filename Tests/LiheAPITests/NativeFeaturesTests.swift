@@ -2,6 +2,20 @@ import XCTest
 @testable import LiheAPI
 
 final class NativeFeaturesTests: XCTestCase {
+    private static var projectRootPath: String {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .path
+    }
+
+    private static func projectFile(_ relativePath: String) -> String {
+        URL(fileURLWithPath: projectRootPath)
+            .appendingPathComponent(relativePath)
+            .path
+    }
+
     func testAppBrandingUsesToCreateName() {
         XCTAssertEqual(AppBranding.displayName, "ToCreate")
         XCTAssertEqual(AppBranding.dmgName, "ToCreate.dmg")
@@ -88,7 +102,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testChannelMonitorOperationalStatusIsRecognizedByMenuScript() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("merged.primary_status"))
         XCTAssertTrue(appSource.contains("'operational'"))
@@ -135,7 +149,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testMainWindowEntryRoutingScriptUsesLoginAndDashboard() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("entryRoutingJavaScript"))
         XCTAssertTrue(appSource.contains("localStorage.getItem('auth_token')"))
@@ -309,6 +323,15 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertNil(try store.load())
     }
 
+    func testMainAppWritesWidgetSnapshotAfterMetricsRefresh() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("private let widgetSnapshotStore = WidgetSnapshotStore()"))
+        XCTAssertTrue(appSource.contains("writeWidgetSnapshot("))
+        XCTAssertTrue(appSource.contains("WidgetSnapshot("))
+        XCTAssertTrue(appSource.contains("privacyModeEnabled: preferences.privacyModeEnabled"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
@@ -316,7 +339,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testMetricsScriptUsesFallbackBalanceFields() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("firstNumber("))
         XCTAssertTrue(appSource.contains("me && me.user && me.user.balance"))
@@ -325,7 +348,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testMetricsRefreshRetriesAfterPageLoadAndMissingBalance() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("scheduleMetricsRefreshAfterPageLoad"))
         XCTAssertTrue(appSource.contains("scheduleBalanceRetryIfNeeded"))
@@ -337,14 +360,14 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(MetricValueCache.replacingMissing(current: nil, cached: 399_478.22), 399_478.22)
         XCTAssertEqual(MetricValueCache.replacingMissing(current: 12.5, cached: 399_478.22), 12.5)
 
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
         XCTAssertTrue(appSource.contains("lastSuccessfulBalance"))
         XCTAssertTrue(appSource.contains("MetricValueCache.replacingMissing(current: balance, cached: lastSuccessfulBalance)"))
         XCTAssertFalse(appSource.contains("setBalanceMenuTitle(metricTitle(\"余额\", \"刷新中…\"))"))
     }
 
     func testPreferencesWindowIsARealSettingsWindow() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("preferencesWindow"))
         XCTAssertTrue(appSource.contains("隐私模式"))
@@ -359,7 +382,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(PreferencesWindowPresentation.controlColumnWidth, 190)
         XCTAssertTrue(PreferencesWindowPresentation.layoutUsesAlignedGrid)
 
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
         XCTAssertTrue(appSource.contains("PreferencesWindowPresentation.width"))
         XCTAssertTrue(appSource.contains("makePreferenceRow"))
         XCTAssertTrue(appSource.contains("buttonRow.topAnchor.constraint"))
@@ -375,7 +398,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testStatusMenuRemovesChannelRowFromAccountSection() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertFalse(appSource.contains("menu.addItem(channelMenuItem)"))
         XCTAssertFalse(appSource.contains("setChannelMenuTitle(metricTitle(\"渠道\""))
@@ -394,7 +417,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testLaunchAtLoginUsesNativeServiceManagementAndPreferencesUI() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("import ServiceManagement"))
         XCTAssertTrue(appSource.contains("SMAppService.mainApp"))
@@ -404,7 +427,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testMainMenuIncludesStandardEditingCommandsForWebTextFields() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("let editMenu = NSMenu(title: \"编辑\")"))
         XCTAssertTrue(appSource.contains("#selector(NSText.cut(_:))"))
@@ -479,7 +502,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testUpdateUIIsConnectedToGitHubReleases() throws {
-        let appSource = try String(contentsOfFile: "/Users/lihe/Desktop/LiheAPI-Mac/Sources/LiheAPI/LiheAPIApp.swift")
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("checkForUpdatesFromMenu"))
         XCTAssertTrue(appSource.contains("showAboutWindow"))
