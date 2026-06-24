@@ -68,6 +68,13 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         false
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard urls.contains(where: { $0.scheme == "tocreate" }) else {
+            return
+        }
+        showWindow()
+    }
+
     private func buildWindow() {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()

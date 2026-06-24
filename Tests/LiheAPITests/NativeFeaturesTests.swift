@@ -332,6 +332,15 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("privacyModeEnabled: preferences.privacyModeEnabled"))
     }
 
+    func testAppRegistersToCreateURLSchemeForWidgetOpen() throws {
+        let plist = try String(contentsOfFile: Self.projectFile("Resources/Info.plist"))
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(plist.contains("<string>tocreate</string>"))
+        XCTAssertTrue(appSource.contains("func application(_ application: NSApplication, open urls: [URL])"))
+        XCTAssertTrue(appSource.contains("showWindow()"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
