@@ -341,6 +341,20 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("showWindow()"))
     }
 
+    func testWidgetSourceFilesDefineWidgetKitExtension() throws {
+        let widget = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidget.swift"))
+        let view = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidgetView.swift"))
+        let bundle = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidgetBundle.swift"))
+
+        XCTAssertTrue(widget.contains("import WidgetKit"))
+        XCTAssertTrue(widget.contains("StaticConfiguration"))
+        XCTAssertTrue(widget.contains("WidgetSnapshotStore"))
+        XCTAssertTrue(widget.contains("TimelineProvider"))
+        XCTAssertTrue(view.contains("@Environment(\\.widgetFamily)"))
+        XCTAssertTrue(view.contains("widgetURL(URL(string: \"tocreate://open\"))"))
+        XCTAssertTrue(bundle.contains("@main"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)

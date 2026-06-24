@@ -15,6 +15,7 @@ let package = Package(
                 "README.md",
                 "Resources",
                 "Tests",
+                "ToCreateWidget",
                 "docs",
                 "scripts"
             ],
