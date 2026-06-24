@@ -622,8 +622,8 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("GitHub 返回 \\(httpResponse.statusCode)"))
     }
 
-    func testUpdateDownloadPlannerUsesVersionedDmgInDownloads() {
-        let downloads = URL(fileURLWithPath: "/Users/test/Downloads", isDirectory: true)
+    func testUpdateDownloadPlannerUsesVersionedDmgInAppCache() {
+        let updateCache = URL(fileURLWithPath: "/Users/test/Library/Containers/chat.lihe.api.mac/Data/Library/Caches/Updates", isDirectory: true)
         let destination = UpdateDownloadPlanner.destinationURL(
             for: AppUpdateInfo(
                 version: "0.1.2",
@@ -631,10 +631,18 @@ final class NativeFeaturesTests: XCTestCase {
                 releasePageURL: URL(string: "https://example.com/release")!,
                 releaseNotes: ""
             ),
-            downloadsDirectory: downloads
+            updatesDirectory: updateCache
         )
 
-        XCTAssertEqual(destination.path, "/Users/test/Downloads/ToCreate-v0.1.2.dmg")
+        XCTAssertEqual(destination.path, "/Users/test/Library/Containers/chat.lihe.api.mac/Data/Library/Caches/Updates/ToCreate-v0.1.2.dmg")
+    }
+
+    func testUpdateDownloadUsesSandboxWritableCacheDirectory() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains(".cachesDirectory"))
+        XCTAssertTrue(appSource.contains("appendingPathComponent(\"Updates\""))
+        XCTAssertFalse(appSource.contains(".downloadsDirectory"))
     }
 
     func testUpdateInstallerScriptMountsDmgCopiesAppAndRelaunches() {

@@ -444,8 +444,8 @@ struct AppUpdateInfo: Equatable {
 }
 
 enum UpdateDownloadPlanner {
-    static func destinationURL(for update: AppUpdateInfo, downloadsDirectory: URL) -> URL {
-        downloadsDirectory.appendingPathComponent("\(AppBranding.displayName)-v\(update.version).dmg")
+    static func destinationURL(for update: AppUpdateInfo, updatesDirectory: URL) -> URL {
+        updatesDirectory.appendingPathComponent("\(AppBranding.displayName)-v\(update.version).dmg")
     }
 }
 

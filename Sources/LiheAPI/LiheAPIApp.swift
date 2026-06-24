@@ -1033,9 +1033,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     }
 
     private func downloadAndOpenUpdate(_ update: AppUpdateInfo) {
-        let downloadsDirectory = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads", isDirectory: true)
-        let destinationURL = UpdateDownloadPlanner.destinationURL(for: update, downloadsDirectory: downloadsDirectory)
+        let updatesDirectory = updateDownloadsDirectory()
+        let destinationURL = UpdateDownloadPlanner.destinationURL(for: update, updatesDirectory: updatesDirectory)
 
         URLSession.shared.downloadTask(with: update.downloadURL) { [weak self] temporaryURL, _, error in
             guard let self else {
@@ -1058,7 +1057,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
             do {
                 try FileManager.default.createDirectory(
-                    at: downloadsDirectory,
+                    at: updatesDirectory,
                     withIntermediateDirectories: true
                 )
                 if FileManager.default.fileExists(atPath: destinationURL.path) {
@@ -1075,6 +1074,12 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
                 }
             }
         }.resume()
+    }
+
+    private func updateDownloadsDirectory() -> URL {
+        let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return cachesDirectory.appendingPathComponent("Updates", isDirectory: true)
     }
 
     private func installAndRelaunchUpdate(from dmgURL: URL) {
