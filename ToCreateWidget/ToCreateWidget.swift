@@ -9,10 +9,10 @@ struct ToCreateWidgetEntry: TimelineEntry {
 struct ToCreateWidgetProvider: TimelineProvider {
     private let store = WidgetSnapshotStore()
 
-    private static func sampleSnapshot(date: Date = Date()) -> WidgetSnapshot {
+    private static func galleryPreviewSnapshot(date: Date = Date()) -> WidgetSnapshot {
         WidgetSnapshot(
             apiStatus: .reachable,
-            balance: 399_478.22,
+            balance: 12_345.67,
             todayRequests: 46,
             todayTokens: 616_102,
             todayCost: 0.78,
@@ -25,20 +25,18 @@ struct ToCreateWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> ToCreateWidgetEntry {
         ToCreateWidgetEntry(
             date: Date(),
-            snapshot: Self.sampleSnapshot()
+            snapshot: Self.galleryPreviewSnapshot()
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ToCreateWidgetEntry) -> Void) {
         let now = Date()
-        let snapshot = (try? store.load()) ?? Self.sampleSnapshot(date: now)
-        completion(ToCreateWidgetEntry(date: now, snapshot: snapshot))
+        completion(ToCreateWidgetEntry(date: now, snapshot: try? store.load()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ToCreateWidgetEntry>) -> Void) {
         let now = Date()
-        let snapshot = (try? store.load()) ?? Self.sampleSnapshot(date: now)
-        let entry = ToCreateWidgetEntry(date: now, snapshot: snapshot)
+        let entry = ToCreateWidgetEntry(date: now, snapshot: try? store.load())
         let next = Calendar.current.date(byAdding: .minute, value: 15, to: now) ?? now.addingTimeInterval(900)
         completion(Timeline(entries: [entry], policy: .after(next)))
     }
