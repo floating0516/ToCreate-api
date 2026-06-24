@@ -378,10 +378,22 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(widget.contains("import WidgetKit"))
         XCTAssertTrue(widget.contains("StaticConfiguration"))
         XCTAssertTrue(widget.contains("WidgetSnapshotStore"))
+        XCTAssertTrue(widget.contains("sampleSnapshot"))
         XCTAssertTrue(widget.contains("TimelineProvider"))
+        XCTAssertTrue(widget.contains("(try? store.load()) ?? Self.sampleSnapshot"))
         XCTAssertTrue(view.contains("@Environment(\\.widgetFamily)"))
         XCTAssertTrue(view.contains("widgetURL(URL(string: \"tocreate://open\"))"))
         XCTAssertTrue(bundle.contains("@main"))
+    }
+
+    func testAppIconUsesAssetCatalogForWidgetGallery() throws {
+        let project = try String(contentsOfFile: Self.projectFile("ToCreate.xcodeproj/project.pbxproj"))
+        let appIconContents = try String(contentsOfFile: Self.projectFile("Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"))
+
+        XCTAssertTrue(project.contains("Assets.xcassets"))
+        XCTAssertTrue(project.contains("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon"))
+        XCTAssertTrue(appIconContents.contains("\"idiom\" : \"mac\""))
+        XCTAssertTrue(appIconContents.contains("AppIcon-512@2x.png"))
     }
 
     func testAppAndWidgetEntitlementsUseSameAppGroup() throws {

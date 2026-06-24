@@ -9,24 +9,30 @@ struct ToCreateWidgetEntry: TimelineEntry {
 struct ToCreateWidgetProvider: TimelineProvider {
     private let store = WidgetSnapshotStore()
 
+    private static func sampleSnapshot(date: Date = Date()) -> WidgetSnapshot {
+        WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 399_478.22,
+            todayRequests: 46,
+            todayTokens: 616_102,
+            todayCost: 0.78,
+            apiKeyCount: 6,
+            updatedAt: date,
+            privacyModeEnabled: false
+        )
+    }
+
     func placeholder(in context: Context) -> ToCreateWidgetEntry {
         ToCreateWidgetEntry(
             date: Date(),
-            snapshot: WidgetSnapshot(
-                apiStatus: .unknown,
-                balance: 399_478.22,
-                todayRequests: 36,
-                todayTokens: 338_100,
-                todayCost: 0.12,
-                apiKeyCount: 6,
-                updatedAt: Date(),
-                privacyModeEnabled: false
-            )
+            snapshot: Self.sampleSnapshot()
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ToCreateWidgetEntry) -> Void) {
-        completion(ToCreateWidgetEntry(date: Date(), snapshot: try? store.load()))
+        let now = Date()
+        let snapshot = (try? store.load()) ?? Self.sampleSnapshot(date: now)
+        completion(ToCreateWidgetEntry(date: now, snapshot: snapshot))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ToCreateWidgetEntry>) -> Void) {
