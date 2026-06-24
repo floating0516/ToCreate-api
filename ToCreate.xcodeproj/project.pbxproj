@@ -1,0 +1,411 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00100000000000000000001 /* LiheAPIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000001 /* LiheAPIApp.swift */; };
+		A00100000000000000000002 /* LauncherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000002 /* LauncherView.swift */; };
+		A00100000000000000000003 /* NativeFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000003 /* NativeFeatures.swift */; };
+		A00100000000000000000004 /* URLPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000004 /* URLPolicy.swift */; };
+		A00100000000000000000005 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000005 /* WebView.swift */; };
+		A00100000000000000000006 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000006 /* WidgetSnapshot.swift */; };
+		A00100000000000000000007 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000007 /* WidgetSnapshotStore.swift */; };
+		A00100000000000000000008 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000006 /* WidgetSnapshot.swift */; };
+		A00100000000000000000009 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000007 /* WidgetSnapshotStore.swift */; };
+		A0010000000000000000000A /* ToCreateWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000A /* ToCreateWidgetBundle.swift */; };
+		A0010000000000000000000B /* ToCreateWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000B /* ToCreateWidget.swift */; };
+		A0010000000000000000000C /* ToCreateWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000C /* ToCreateWidgetView.swift */; };
+		A0010000000000000000000D /* AppIconSource.png in Resources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000D /* AppIconSource.png */; };
+		A0010000000000000000000E /* ToCreateWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000F /* ToCreateWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A00300000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00400000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00500000000000000000002;
+			remoteInfo = ToCreateWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A00600000000000000000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A0010000000000000000000E /* ToCreateWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A00200000000000000000001 /* LiheAPIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiheAPIApp.swift; sourceTree = "<group>"; };
+		A00200000000000000000002 /* LauncherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherView.swift; sourceTree = "<group>"; };
+		A00200000000000000000003 /* NativeFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeFeatures.swift; sourceTree = "<group>"; };
+		A00200000000000000000004 /* URLPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLPolicy.swift; sourceTree = "<group>"; };
+		A00200000000000000000005 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
+		A00200000000000000000006 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		A00200000000000000000007 /* WidgetSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotStore.swift; sourceTree = "<group>"; };
+		A00200000000000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A00200000000000000000009 /* ToCreate.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ToCreate.entitlements; sourceTree = "<group>"; };
+		A0020000000000000000000A /* ToCreateWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToCreateWidgetBundle.swift; sourceTree = "<group>"; };
+		A0020000000000000000000B /* ToCreateWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToCreateWidget.swift; sourceTree = "<group>"; };
+		A0020000000000000000000C /* ToCreateWidgetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToCreateWidgetView.swift; sourceTree = "<group>"; };
+		A0020000000000000000000D /* AppIconSource.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = AppIconSource.png; sourceTree = "<group>"; };
+		A0020000000000000000000E /* ToCreateWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ToCreateWidget.entitlements; sourceTree = "<group>"; };
+		A0020000000000000000000F /* ToCreateWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ToCreateWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00200000000000000000010 /* ToCreate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToCreate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00200000000000000000011 /* Widget Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00700000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A00700000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00800000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A00800000000000000000002 /* Sources */,
+				A00800000000000000000004 /* Shared */,
+				A00800000000000000000005 /* Resources */,
+				A00800000000000000000006 /* ToCreateWidget */,
+				A00800000000000000000007 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00800000000000000000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A00800000000000000000003 /* LiheAPI */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A00800000000000000000003 /* LiheAPI */ = {
+			isa = PBXGroup;
+			children = (
+				A00200000000000000000001 /* LiheAPIApp.swift */,
+				A00200000000000000000002 /* LauncherView.swift */,
+				A00200000000000000000003 /* NativeFeatures.swift */,
+				A00200000000000000000004 /* URLPolicy.swift */,
+				A00200000000000000000005 /* WebView.swift */,
+			);
+			path = LiheAPI;
+			sourceTree = "<group>";
+		};
+		A00800000000000000000004 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A00200000000000000000006 /* WidgetSnapshot.swift */,
+				A00200000000000000000007 /* WidgetSnapshotStore.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		A00800000000000000000005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A00200000000000000000008 /* Info.plist */,
+				A00200000000000000000009 /* ToCreate.entitlements */,
+				A0020000000000000000000D /* AppIconSource.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A00800000000000000000006 /* ToCreateWidget */ = {
+			isa = PBXGroup;
+			children = (
+				A0020000000000000000000A /* ToCreateWidgetBundle.swift */,
+				A0020000000000000000000B /* ToCreateWidget.swift */,
+				A0020000000000000000000C /* ToCreateWidgetView.swift */,
+				A00200000000000000000011 /* Widget Info.plist */,
+				A0020000000000000000000E /* ToCreateWidget.entitlements */,
+			);
+			path = ToCreateWidget;
+			sourceTree = "<group>";
+		};
+		A00800000000000000000007 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A00200000000000000000010 /* ToCreate.app */,
+				A0020000000000000000000F /* ToCreateWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A00500000000000000000001 /* ToCreate */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00900000000000000000002 /* Build configuration list for PBXNativeTarget "ToCreate" */;
+			buildPhases = (
+				A00A00000000000000000001 /* Sources */,
+				A00700000000000000000001 /* Frameworks */,
+				A00B00000000000000000001 /* Resources */,
+				A00600000000000000000001 /* Embed App Extensions */,
+			);
+			buildRules = ();
+			dependencies = (
+				A00C00000000000000000001 /* PBXTargetDependency */,
+			);
+			name = ToCreate;
+			productName = ToCreate;
+			productReference = A00200000000000000000010 /* ToCreate.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A00500000000000000000002 /* ToCreateWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00900000000000000000003 /* Build configuration list for PBXNativeTarget "ToCreateWidgetExtension" */;
+			buildPhases = (
+				A00A00000000000000000002 /* Sources */,
+				A00700000000000000000002 /* Frameworks */,
+				A00B00000000000000000002 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = ToCreateWidgetExtension;
+			productName = ToCreateWidget;
+			productReference = A0020000000000000000000F /* ToCreateWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00400000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					A00500000000000000000001 = {CreatedOnToolsVersion = 26.5; };
+					A00500000000000000000002 = {CreatedOnToolsVersion = 26.5; };
+				};
+			};
+			buildConfigurationList = A00900000000000000000001 /* Build configuration list for PBXProject "ToCreate" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				zh_CN,
+				en,
+				Base,
+			);
+			mainGroup = A00800000000000000000001;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A00800000000000000000007 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A00500000000000000000001 /* ToCreate */,
+				A00500000000000000000002 /* ToCreateWidgetExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00B00000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A0010000000000000000000D /* AppIconSource.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00B00000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00A00000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00100000000000000000001 /* LiheAPIApp.swift in Sources */,
+				A00100000000000000000002 /* LauncherView.swift in Sources */,
+				A00100000000000000000003 /* NativeFeatures.swift in Sources */,
+				A00100000000000000000004 /* URLPolicy.swift in Sources */,
+				A00100000000000000000005 /* WebView.swift in Sources */,
+				A00100000000000000000006 /* WidgetSnapshot.swift in Sources */,
+				A00100000000000000000007 /* WidgetSnapshotStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00A00000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00100000000000000000008 /* WidgetSnapshot.swift in Sources */,
+				A00100000000000000000009 /* WidgetSnapshotStore.swift in Sources */,
+				A0010000000000000000000A /* ToCreateWidgetBundle.swift in Sources */,
+				A0010000000000000000000B /* ToCreateWidget.swift in Sources */,
+				A0010000000000000000000C /* ToCreateWidgetView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A00C00000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00500000000000000000002 /* ToCreateWidgetExtension */;
+			targetProxy = A00300000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A00D00000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A00D00000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A00D00000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Resources/ToCreate.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = chat.lihe.api.mac;
+				PRODUCT_NAME = ToCreate;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A00D00000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Resources/ToCreate.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = chat.lihe.api.mac;
+				PRODUCT_NAME = ToCreate;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A00D00000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ToCreateWidget/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = chat.lihe.api.mac.widget;
+				PRODUCT_NAME = ToCreateWidget;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Debug;
+		};
+		A00D00000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 4;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ToCreateWidget/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.1.3;
+				PRODUCT_BUNDLE_IDENTIFIER = chat.lihe.api.mac.widget;
+				PRODUCT_NAME = ToCreateWidget;
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00900000000000000000001 /* Build configuration list for PBXProject "ToCreate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00D00000000000000000001 /* Debug */,
+				A00D00000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00900000000000000000002 /* Build configuration list for PBXNativeTarget "ToCreate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00D00000000000000000003 /* Debug */,
+				A00D00000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00900000000000000000003 /* Build configuration list for PBXNativeTarget "ToCreateWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00D00000000000000000005 /* Debug */,
+				A00D00000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A00400000000000000000001 /* Project object */;
+}

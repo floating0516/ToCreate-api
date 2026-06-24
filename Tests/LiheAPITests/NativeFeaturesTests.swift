@@ -365,6 +365,18 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(widgetEntitlements.contains("com.apple.security.application-groups"))
     }
 
+    func testXcodeProjectDefinesAppAndWidgetTargets() throws {
+        let project = try String(contentsOfFile: Self.projectFile("ToCreate.xcodeproj/project.pbxproj"))
+
+        XCTAssertTrue(project.contains("ToCreate"))
+        XCTAssertTrue(project.contains("ToCreateWidgetExtension"))
+        XCTAssertTrue(project.contains("com.apple.product-type.application"))
+        XCTAssertTrue(project.contains("com.apple.product-type.app-extension"))
+        XCTAssertTrue(project.contains("ToCreateWidget.appex"))
+        XCTAssertTrue(project.contains("CODE_SIGN_ENTITLEMENTS = Resources/ToCreate.entitlements"))
+        XCTAssertTrue(project.contains("CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
