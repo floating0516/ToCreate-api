@@ -11,17 +11,35 @@ ICONSET="$WORK/AppIcon.iconset"
 ICON="$WORK/AppIcon.icns"
 DMG="$WORK/ToCreate.dmg"
 OUTPUT_DMG="$DIST/ToCreate.dmg"
+DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM:-}"
+SIGN_IDENTITY="${SIGN_IDENTITY:-Apple Development}"
 
 trap 'rm -rf "$WORK"' EXIT
 
 cd "$ROOT"
-xcodebuild \
-    -project "$ROOT/ToCreate.xcodeproj" \
-    -scheme ToCreate \
-    -configuration Release \
-    -derivedDataPath "$DERIVED_DATA" \
-    CODE_SIGNING_ALLOWED=NO \
-    build
+if [[ -n "$DEVELOPMENT_TEAM" ]]; then
+    echo "Building with Apple Development signing for team: $DEVELOPMENT_TEAM"
+    xcodebuild \
+        -project "$ROOT/ToCreate.xcodeproj" \
+        -scheme ToCreate \
+        -configuration Release \
+        -derivedDataPath "$DERIVED_DATA" \
+        -allowProvisioningUpdates \
+        CODE_SIGNING_ALLOWED=YES \
+        CODE_SIGN_STYLE=Automatic \
+        DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+        CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+        build
+else
+    echo "Building with ad-hoc signing. WidgetKit may not list the desktop widget until the app is development-signed."
+    xcodebuild \
+        -project "$ROOT/ToCreate.xcodeproj" \
+        -scheme ToCreate \
+        -configuration Release \
+        -derivedDataPath "$DERIVED_DATA" \
+        CODE_SIGNING_ALLOWED=NO \
+        build
+fi
 
 rm -rf "$DIST"
 mkdir -p "$DIST"
@@ -34,8 +52,13 @@ iconutil --convert icns "$ICONSET" --output "$ICON"
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
 
 xattr -cr "$APP"
-codesign --force --sign - --entitlements "$ROOT/ToCreateWidget/ToCreateWidget.entitlements" "$APP/Contents/PlugIns/ToCreateWidget.appex"
-codesign --force --sign - --entitlements "$ROOT/Resources/ToCreate.entitlements" "$APP"
+if [[ -n "$DEVELOPMENT_TEAM" ]]; then
+    codesign --force --sign "$SIGN_IDENTITY" --entitlements "$ROOT/ToCreateWidget/ToCreateWidget.entitlements" "$APP/Contents/PlugIns/ToCreateWidget.appex"
+    codesign --force --sign "$SIGN_IDENTITY" --entitlements "$ROOT/Resources/ToCreate.entitlements" "$APP"
+else
+    codesign --force --sign - --entitlements "$ROOT/ToCreateWidget/ToCreateWidget.entitlements" "$APP/Contents/PlugIns/ToCreateWidget.appex"
+    codesign --force --sign - --entitlements "$ROOT/Resources/ToCreate.entitlements" "$APP"
+fi
 codesign --verify --deep --strict "$APP"
 
 cp -R "$APP" "$STAGING/"
