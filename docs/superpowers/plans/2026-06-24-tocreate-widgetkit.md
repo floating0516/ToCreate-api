@@ -8,6 +8,8 @@
 
 **Tech Stack:** Swift 6、AppKit、WebKit、SwiftUI、WidgetKit、UserDefaults App Group、XCTest、Xcode project、DMG packaging。
 
+**Implementation status on 2026-06-24:** Tasks 0–8 are implemented and committed on `feature/tocreate-widgetkit`. `swift test` passes, `xcodebuild` builds the app/widget targets, and `scripts/package_app.sh` creates `dist/ToCreate.dmg` with `ToCreateWidget.appex` embedded. Task 9 was verified by inspecting the packaged DMG without overwriting the currently installed `/Applications/ToCreate.app`; final widget visibility still needs a manual Finder/Desktop check after the user installs the DMG.
+
 ---
 
 ## Current State And Constraints
@@ -1553,4 +1555,3 @@ Manual expected result:
 - Menu bar still works
 - Widget extension is embedded
 - Widget gallery either shows ToCreate or, if blocked, failure is attributable to signing/App Group limitation rather than missing files
-
