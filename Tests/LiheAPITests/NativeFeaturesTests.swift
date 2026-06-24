@@ -599,6 +599,29 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(update.downloadURL.absoluteString, "https://github.com/floating0516/ToCreate-api/releases/download/v0.1.1/ToCreate.dmg")
     }
 
+    func testGitHubReleaseParserReportsGitHubErrorMessage() {
+        let json = """
+        {
+          "message": "Not Found",
+          "documentation_url": "https://docs.github.com/rest/releases/releases#get-the-latest-release"
+        }
+        """
+
+        XCTAssertThrowsError(
+            try GitHubReleaseParser.parseLatestRelease(Data(json.utf8), assetName: AppBranding.dmgName)
+        ) { error in
+            XCTAssertEqual(error.localizedDescription, "GitHub 返回错误：Not Found")
+        }
+    }
+
+    func testUpdateCheckHandlesNonSuccessfulHTTPStatusBeforeParsingRelease() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("response as? HTTPURLResponse"))
+        XCTAssertTrue(appSource.contains("GitHubReleaseParser.errorMessage"))
+        XCTAssertTrue(appSource.contains("GitHub 返回 \\(httpResponse.statusCode)"))
+    }
+
     func testUpdateDownloadPlannerUsesVersionedDmgInDownloads() {
         let downloads = URL(fileURLWithPath: "/Users/test/Downloads", isDirectory: true)
         let destination = UpdateDownloadPlanner.destinationURL(

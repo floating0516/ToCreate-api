@@ -510,15 +510,36 @@ enum VersionComparator {
 }
 
 enum GitHubReleaseParser {
-    enum ParserError: Error {
+    enum ParserError: Error, LocalizedError {
         case invalidPayload
         case missingReleaseURL
         case missingAsset
+        case githubError(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidPayload:
+                return "GitHub 返回的不是有效的 Release 信息。"
+            case .missingReleaseURL:
+                return "GitHub Release 缺少页面地址。"
+            case .missingAsset:
+                return "GitHub Release 里没有找到 ToCreate.dmg。"
+            case .githubError(let message):
+                return "GitHub 返回错误：\(message)"
+            }
+        }
     }
 
     static func parseLatestRelease(_ data: Data, assetName: String) throws -> AppUpdateInfo {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tagName = object["tag_name"] as? String else {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ParserError.invalidPayload
+        }
+
+        if let message = errorMessage(from: object) {
+            throw ParserError.githubError(message)
+        }
+
+        guard let tagName = object["tag_name"] as? String else {
             throw ParserError.invalidPayload
         }
 
@@ -544,6 +565,23 @@ enum GitHubReleaseParser {
 
     private static func normalizedVersion(_ tagName: String) -> String {
         tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+    }
+
+    static func errorMessage(from data: Data) -> String? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return errorMessage(from: object)
+    }
+
+    private static func errorMessage(from object: [String: Any]) -> String? {
+        (object["message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

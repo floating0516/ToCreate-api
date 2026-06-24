@@ -957,7 +957,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("\(AppBranding.displayName)/\(currentAppVersion())", forHTTPHeaderField: "User-Agent")
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self else {
                 return
             }
@@ -966,6 +966,18 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
                 DispatchQueue.main.async {
                     if !silentWhenCurrent {
                         self.showUpdateCheckFailed(error.localizedDescription)
+                    }
+                }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200...299).contains(httpResponse.statusCode) {
+                let statusDescription = HTTPURLResponse.localizedString(forStatusCode: httpResponse.statusCode)
+                let message = data.flatMap(GitHubReleaseParser.errorMessage) ?? statusDescription
+                DispatchQueue.main.async {
+                    if !silentWhenCurrent {
+                        self.showUpdateCheckFailed("GitHub 返回 \(httpResponse.statusCode)：\(message)")
                     }
                 }
                 return
