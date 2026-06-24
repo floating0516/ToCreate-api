@@ -45,7 +45,7 @@ struct ToCreateWidgetView: View {
                     statusPill(for: display.snapshot.apiStatus)
                 }
 
-                heroMetric("余额", display.balanceText, size: 28)
+                heroMetric("余额", display.balanceText, size: 26)
 
                 VStack(spacing: 7) {
                     metricRow("今日费用", display.todayCostText)
@@ -98,19 +98,8 @@ struct ToCreateWidgetView: View {
     }
 
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    WidgetPalette.backgroundTop,
-                    WidgetPalette.backgroundBottom
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            content()
-                .padding(18)
-        }
+        content()
+            .widgetContentPadding(for: family)
     }
 
     private func header(compact: Bool) -> some View {
@@ -226,15 +215,39 @@ private enum WidgetPalette {
     static let warningBackground = Color(red: 1.00, green: 0.95, blue: 0.84)
     static let backgroundTop = Color(red: 0.99, green: 0.99, blue: 1.00)
     static let backgroundBottom = Color(red: 0.94, green: 0.97, blue: 1.00)
+
+    static var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [backgroundTop, backgroundBottom],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
 
 private extension View {
     @ViewBuilder
+    func widgetContentPadding(for family: WidgetFamily) -> some View {
+        switch family {
+        case .systemSmall:
+            padding(16)
+        case .systemMedium:
+            padding(.vertical, 18)
+                .padding(.horizontal, 22)
+        default:
+            padding(.vertical, 18)
+                .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
     func widgetBackground() -> some View {
         if #available(macOSApplicationExtension 14.0, *) {
-            containerBackground(.background, for: .widget)
+            containerBackground(for: .widget) {
+                WidgetPalette.backgroundGradient
+            }
         } else {
-            background(Color.clear)
+            background(WidgetPalette.backgroundGradient)
         }
     }
 }

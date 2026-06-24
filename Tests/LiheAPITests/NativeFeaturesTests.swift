@@ -412,6 +412,15 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(view.contains(".font(.system(size: size, weight: .semibold"))
     }
 
+    func testWidgetBackgroundUsesSystemContainerAndAdaptivePadding() throws {
+        let view = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidgetView.swift"))
+
+        XCTAssertTrue(view.contains("containerBackground(for: .widget)"))
+        XCTAssertTrue(view.contains("WidgetPalette.backgroundGradient"))
+        XCTAssertTrue(view.contains("widgetContentPadding"))
+        XCTAssertFalse(view.contains("ZStack {\n            LinearGradient("))
+    }
+
     func testAppAndWidgetEntitlementsUseSameAppGroup() throws {
         let appEntitlements = try String(contentsOfFile: Self.projectFile("Resources/ToCreate.entitlements"))
         let widgetEntitlements = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidget.entitlements"))
