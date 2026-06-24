@@ -377,6 +377,13 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(project.contains("CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements"))
     }
 
+    func testMainAppInfoPlistUsesXcodeExecutableName() throws {
+        let plist = try String(contentsOfFile: Self.projectFile("Resources/Info.plist"))
+
+        XCTAssertTrue(plist.contains("<key>CFBundleExecutable</key>"))
+        XCTAssertTrue(plist.contains("<string>$(EXECUTABLE_NAME)</string>"))
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
@@ -561,7 +568,7 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testReleaseScriptAutomatesSafeGitHubReleaseFlow() throws {
-        let scriptPath = "/Users/lihe/Desktop/LiheAPI-Mac/scripts/release.sh"
+        let scriptPath = Self.projectFile("scripts/release.sh")
         let script = try String(contentsOfFile: scriptPath)
 
         XCTAssertTrue(script.contains("Usage: ./scripts/release.sh <version> <release-notes>"))
@@ -576,5 +583,18 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("dist/ToCreate.dmg"))
         XCTAssertTrue(script.contains("git tag \"v$VERSION\""))
         XCTAssertTrue(script.contains("gh release create \"v$VERSION\""))
+    }
+
+    func testPackageScriptBuildsXcodeAppAndSignsWidgetBundle() throws {
+        let script = try String(contentsOfFile: Self.projectFile("scripts/package_app.sh"))
+
+        XCTAssertTrue(script.contains("xcodebuild"))
+        XCTAssertTrue(script.contains("-project \"$ROOT/ToCreate.xcodeproj\""))
+        XCTAssertTrue(script.contains("-scheme ToCreate"))
+        XCTAssertTrue(script.contains("CODE_SIGNING_ALLOWED=NO"))
+        XCTAssertTrue(script.contains("ditto \"$DERIVED_DATA/Build/Products/Release/ToCreate.app\" \"$APP\""))
+        XCTAssertTrue(script.contains("ToCreateWidget.entitlements"))
+        XCTAssertTrue(script.contains("Resources/ToCreate.entitlements"))
+        XCTAssertTrue(script.contains("codesign --verify --deep --strict \"$APP\""))
     }
 }

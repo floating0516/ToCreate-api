@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>ToCreate</string>
 	<key>CFBundleExecutable</key>
-	<string>LiheAPI</string>
+	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
