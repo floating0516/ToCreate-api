@@ -299,7 +299,9 @@ final class NativeFeaturesTests: XCTestCase {
 
     func testWidgetSnapshotStoreSavesAndLoadsSnapshot() throws {
         let defaults = UserDefaults(suiteName: "WidgetSnapshotStoreTests-\(UUID().uuidString)")!
-        let store = WidgetSnapshotStore(defaults: defaults)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("WidgetSnapshotStoreTests-\(UUID().uuidString).json")
+        let store = WidgetSnapshotStore(defaults: defaults, fileURL: fileURL)
         let snapshot = WidgetSnapshot(
             apiStatus: .reachable,
             balance: 99,
@@ -314,11 +316,37 @@ final class NativeFeaturesTests: XCTestCase {
         try store.save(snapshot)
 
         XCTAssertEqual(try store.load(), snapshot)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
+    func testWidgetSnapshotStoreFallsBackToDefaultsWhenFileIsMissing() throws {
+        let defaults = UserDefaults(suiteName: "WidgetSnapshotStoreTests-\(UUID().uuidString)")!
+        let missingFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MissingWidgetSnapshot-\(UUID().uuidString).json")
+        let store = WidgetSnapshotStore(defaults: defaults, fileURL: missingFileURL)
+        let snapshot = WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 88,
+            todayRequests: 9,
+            todayTokens: 18,
+            todayCost: 0.2,
+            apiKeyCount: 3,
+            updatedAt: Date(timeIntervalSince1970: 1_782_300_001),
+            privacyModeEnabled: false
+        )
+        let data = try JSONEncoder().encode(snapshot)
+
+        defaults.set(data, forKey: WidgetSnapshotStore.snapshotKey)
+
+        XCTAssertEqual(try store.load(), snapshot)
     }
 
     func testWidgetSnapshotStoreReturnsNilWhenEmpty() throws {
         let defaults = UserDefaults(suiteName: "WidgetSnapshotStoreTests-\(UUID().uuidString)")!
-        let store = WidgetSnapshotStore(defaults: defaults)
+        let missingFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MissingWidgetSnapshot-\(UUID().uuidString).json")
+        let store = WidgetSnapshotStore(defaults: defaults, fileURL: missingFileURL)
 
         XCTAssertNil(try store.load())
     }
