@@ -283,6 +283,32 @@ final class NativeFeaturesTests: XCTestCase {
         )
     }
 
+    func testWidgetSnapshotStoreSavesAndLoadsSnapshot() throws {
+        let defaults = UserDefaults(suiteName: "WidgetSnapshotStoreTests-\(UUID().uuidString)")!
+        let store = WidgetSnapshotStore(defaults: defaults)
+        let snapshot = WidgetSnapshot(
+            apiStatus: .reachable,
+            balance: 99,
+            todayRequests: 10,
+            todayTokens: 20,
+            todayCost: 0.3,
+            apiKeyCount: 4,
+            updatedAt: Date(timeIntervalSince1970: 1_782_300_000),
+            privacyModeEnabled: false
+        )
+
+        try store.save(snapshot)
+
+        XCTAssertEqual(try store.load(), snapshot)
+    }
+
+    func testWidgetSnapshotStoreReturnsNilWhenEmpty() throws {
+        let defaults = UserDefaults(suiteName: "WidgetSnapshotStoreTests-\(UUID().uuidString)")!
+        let store = WidgetSnapshotStore(defaults: defaults)
+
+        XCTAssertNil(try store.load())
+    }
+
     func testMetricPayloadParserAcceptsStringNumbers() {
         XCTAssertEqual(MetricPayloadParser.doubleValue("399478.22"), 399_478.22)
         XCTAssertEqual(MetricPayloadParser.doubleValue(399_478.22), 399_478.22)
