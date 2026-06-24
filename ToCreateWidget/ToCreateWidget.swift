@@ -37,7 +37,8 @@ struct ToCreateWidgetProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ToCreateWidgetEntry>) -> Void) {
         let now = Date()
-        let entry = ToCreateWidgetEntry(date: now, snapshot: try? store.load())
+        let snapshot = (try? store.load()) ?? Self.sampleSnapshot(date: now)
+        let entry = ToCreateWidgetEntry(date: now, snapshot: snapshot)
         let next = Calendar.current.date(byAdding: .minute, value: 15, to: now) ?? now.addingTimeInterval(900)
         completion(Timeline(entries: [entry], policy: .after(next)))
     }

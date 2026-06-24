@@ -381,6 +381,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(widget.contains("sampleSnapshot"))
         XCTAssertTrue(widget.contains("TimelineProvider"))
         XCTAssertTrue(widget.contains("(try? store.load()) ?? Self.sampleSnapshot"))
+        XCTAssertEqual(widget.components(separatedBy: "(try? store.load()) ?? Self.sampleSnapshot").count - 1, 2)
         XCTAssertTrue(view.contains("@Environment(\\.widgetFamily)"))
         XCTAssertTrue(view.contains("widgetURL(URL(string: \"tocreate://open\"))"))
         XCTAssertTrue(bundle.contains("@main"))
@@ -392,6 +393,7 @@ final class NativeFeaturesTests: XCTestCase {
 
         XCTAssertTrue(project.contains("Assets.xcassets"))
         XCTAssertTrue(project.contains("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon"))
+        XCTAssertTrue(project.contains("Assets.xcassets in Resources"))
         XCTAssertTrue(appIconContents.contains("\"idiom\" : \"mac\""))
         XCTAssertTrue(appIconContents.contains("AppIcon-512@2x.png"))
     }
