@@ -398,6 +398,20 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appIconContents.contains("AppIcon-512@2x.png"))
     }
 
+    func testWidgetViewUsesDesignedLayoutSystemAcrossFamilies() throws {
+        let view = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidgetView.swift"))
+
+        XCTAssertTrue(view.contains("WidgetPalette"))
+        XCTAssertTrue(view.contains("statusPill"))
+        XCTAssertTrue(view.contains("heroMetric"))
+        XCTAssertTrue(view.contains("smallContent"))
+        XCTAssertTrue(view.contains("mediumContent"))
+        XCTAssertTrue(view.contains("largeContent"))
+        XCTAssertTrue(view.contains("LinearGradient"))
+        XCTAssertTrue(view.contains("RoundedRectangle(cornerRadius: 999"))
+        XCTAssertTrue(view.contains(".font(.system(size: size, weight: .semibold"))
+    }
+
     func testAppAndWidgetEntitlementsUseSameAppGroup() throws {
         let appEntitlements = try String(contentsOfFile: Self.projectFile("Resources/ToCreate.entitlements"))
         let widgetEntitlements = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidget.entitlements"))
