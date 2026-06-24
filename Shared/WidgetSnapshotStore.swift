@@ -21,6 +21,7 @@ struct WidgetSnapshotStore {
     func save(_ snapshot: WidgetSnapshot) throws {
         let data = try JSONEncoder().encode(snapshot)
         defaults.set(data, forKey: Self.snapshotKey)
+        defaults.synchronize()
     }
 
     func load() throws -> WidgetSnapshot? {

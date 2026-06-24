@@ -2,6 +2,7 @@ import AppKit
 import ServiceManagement
 import UserNotifications
 import WebKit
+import WidgetKit
 
 @main
 final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, @preconcurrency UNUserNotificationCenterDelegate {
@@ -663,6 +664,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
         do {
             try widgetSnapshotStore.save(snapshot)
+            WidgetCenter.shared.reloadTimelines(ofKind: "ToCreateWidget")
         } catch {
             NSLog("ToCreate widget snapshot save failed: %@", error.localizedDescription)
         }

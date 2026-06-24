@@ -59,7 +59,7 @@ else
 fi
 codesign --verify --deep --strict "$APP"
 
-cp -R "$APP" "$STAGING/"
+ditto "$APP" "$STAGING/ToCreate.app"
 ln -s /Applications "$STAGING/Applications"
 hdiutil create \
     -volname "ToCreate" \

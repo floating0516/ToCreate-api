@@ -330,6 +330,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(appSource.contains("writeWidgetSnapshot("))
         XCTAssertTrue(appSource.contains("WidgetSnapshot("))
         XCTAssertTrue(appSource.contains("privacyModeEnabled: preferences.privacyModeEnabled"))
+        XCTAssertTrue(appSource.contains("WidgetCenter.shared.reloadTimelines(ofKind: \"ToCreateWidget\")"))
     }
 
     func testAppRegistersToCreateURLSchemeForWidgetOpen() throws {
@@ -385,6 +386,9 @@ final class NativeFeaturesTests: XCTestCase {
 
         XCTAssertTrue(plist.contains("<key>CFBundleExecutable</key>"))
         XCTAssertTrue(plist.contains("<string>$(EXECUTABLE_NAME)</string>"))
+        XCTAssertTrue(plist.contains("<key>CFBundleIconFile</key>"))
+        XCTAssertTrue(plist.contains("<key>CFBundleIconName</key>"))
+        XCTAssertTrue(plist.contains("<string>AppIcon</string>"))
     }
 
     func testWidgetBuildUsesMacOS14MinimumForDesktopWidgets() throws {
