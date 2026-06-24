@@ -363,6 +363,9 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(widgetEntitlements.contains("group.chat.lihe.api.mac"))
         XCTAssertTrue(appEntitlements.contains("com.apple.security.application-groups"))
         XCTAssertTrue(widgetEntitlements.contains("com.apple.security.application-groups"))
+        XCTAssertTrue(appEntitlements.contains("com.apple.security.app-sandbox"))
+        XCTAssertTrue(widgetEntitlements.contains("com.apple.security.app-sandbox"))
+        XCTAssertTrue(appEntitlements.contains("com.apple.security.network.client"))
     }
 
     func testXcodeProjectDefinesAppAndWidgetTargets() throws {
