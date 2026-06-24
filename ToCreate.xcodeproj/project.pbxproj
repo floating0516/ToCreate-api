@@ -354,11 +354,11 @@
 				CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ToCreateWidget/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = chat.lihe.api.mac.widget;
 				PRODUCT_NAME = ToCreateWidget;
 				SKIP_INSTALL = YES;
@@ -375,11 +375,11 @@
 				CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ToCreateWidget/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = chat.lihe.api.mac.widget;
 				PRODUCT_NAME = ToCreateWidget;
 				SKIP_INSTALL = YES;
