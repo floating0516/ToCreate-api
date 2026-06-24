@@ -23,12 +23,15 @@ if [[ -n "$DEVELOPMENT_TEAM" ]]; then
         -project "$ROOT/ToCreate.xcodeproj" \
         -scheme ToCreate \
         -configuration Release \
+        -destination "generic/platform=macOS" \
         -derivedDataPath "$DERIVED_DATA" \
         -allowProvisioningUpdates \
         CODE_SIGNING_ALLOWED=YES \
         CODE_SIGN_STYLE=Automatic \
         DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
         CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+        ONLY_ACTIVE_ARCH=NO \
+        ARCHS="arm64 x86_64" \
         build
 else
     echo "Building with ad-hoc signing. WidgetKit may not list the desktop widget until the app is development-signed."
@@ -36,8 +39,11 @@ else
         -project "$ROOT/ToCreate.xcodeproj" \
         -scheme ToCreate \
         -configuration Release \
+        -destination "generic/platform=macOS" \
         -derivedDataPath "$DERIVED_DATA" \
         CODE_SIGNING_ALLOWED=NO \
+        ONLY_ACTIVE_ARCH=NO \
+        ARCHS="arm64 x86_64" \
         build
 fi
 
