@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INFO_PLIST="$ROOT/Resources/Info.plist"
+PROJECT_FILE="$ROOT/ToCreate.xcodeproj/project.pbxproj"
 DMG="$ROOT/dist/ToCreate.dmg"
 REPO="floating0516/ToCreate-api"
 
@@ -53,6 +54,7 @@ NEXT_BUILD="$((CURRENT_BUILD + 1))"
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEXT_BUILD" "$INFO_PLIST"
+perl -0pi -e "s/MARKETING_VERSION = [0-9]+\\.[0-9]+\\.[0-9]+;/MARKETING_VERSION = $VERSION;/g; s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = $NEXT_BUILD;/g" "$PROJECT_FILE"
 
 swift test
 ./scripts/package_app.sh
@@ -62,7 +64,7 @@ if [[ ! -f "$DMG" ]]; then
     exit 1
 fi
 
-git add "$INFO_PLIST"
+git add "$INFO_PLIST" "$PROJECT_FILE"
 git commit -m "release v$VERSION"
 git tag "v$VERSION"
 git push
