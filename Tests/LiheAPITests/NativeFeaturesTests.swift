@@ -1043,6 +1043,22 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("gh release create \"v$VERSION\""))
     }
 
+    func testCommitAndPackageScriptAutomatesLocalCheckpointFlow() throws {
+        let scriptPath = Self.projectFile("scripts/commit_and_package.sh")
+        let script = try String(contentsOfFile: scriptPath)
+
+        XCTAssertTrue(script.contains("Usage: ./scripts/commit_and_package.sh <commit-message>"))
+        XCTAssertTrue(script.contains("git diff --check"))
+        XCTAssertTrue(script.contains("swift test"))
+        XCTAssertTrue(script.contains("./scripts/package_app.sh"))
+        XCTAssertTrue(script.contains("dist/ToCreate.dmg"))
+        XCTAssertTrue(script.contains("git add -A"))
+        XCTAssertTrue(script.contains("git commit -m \"$COMMIT_MESSAGE\""))
+        XCTAssertTrue(script.contains("git status --short"))
+        XCTAssertFalse(script.contains("git push"))
+        XCTAssertFalse(script.contains("gh release create"))
+    }
+
     func testPackageScriptBuildsXcodeAppWithoutWidgetBundleWhileFeatureIsPaused() throws {
         let script = try String(contentsOfFile: Self.projectFile("scripts/package_app.sh"))
 
