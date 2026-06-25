@@ -2,7 +2,6 @@ import AppKit
 import ServiceManagement
 import UserNotifications
 import WebKit
-import WidgetKit
 
 final class StatusBarProgressView: NSView {
     private struct BarLayer {
@@ -220,7 +219,7 @@ final class StatusBarProgressPreviewView: NSView {
 }
 
 @main
-final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, @preconcurrency UNUserNotificationCenterDelegate {
+final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, @preconcurrency URLSessionDownloadDelegate, @preconcurrency UNUserNotificationCenterDelegate {
     private static let delegate = LiheAPIApp()
 
     static func main() {
@@ -254,10 +253,15 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var subscriptionSeparatorMenuItem: NSMenuItem!
     private var updatedAtMenuItem: NSMenuItem!
     private let preferencesStore = PreferencesStore()
-    private let widgetSnapshotStore = WidgetSnapshotStore()
     private lazy var preferences = preferencesStore.load()
     private var metricsRefreshTimer: Timer?
     private var preferencesWindow: NSWindow?
+    private var updateProgressWindow: NSWindow?
+    private var updateProgressIndicator: NSProgressIndicator?
+    private var updateProgressLabel: NSTextField?
+    private var updateDownloadSession: URLSession?
+    private var updateProgressTask: URLSessionDownloadTask?
+    private var pendingUpdateDownload: PendingUpdateDownload?
     private var privacyCheckbox: NSButton?
     private var refreshIntervalPopup: NSPopUpButton?
     private var launchAtLoginCheckbox: NSButton?
@@ -285,6 +289,12 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private let updateFeedURL = URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest")!
     private let latestDMGDownloadURL = URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest/download/ToCreate.dmg")!
 
+    private struct PendingUpdateDownload {
+        let update: AppUpdateInfo
+        let updatesDirectory: URL
+        let destinationURL: URL
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         buildMenu()
@@ -302,6 +312,13 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            showWindow()
+        }
+        return true
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -1117,34 +1134,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         handleMetricsPayload(json)
     }
 
-    private func writeWidgetSnapshot(
-        apiStatus: WidgetAPIStatus,
-        balance: Double?,
-        todayRequests: Double?,
-        todayTokens: Double?,
-        todayCost: Double?,
-        apiKeyCount: Double?,
-        updatedAt: Date
-    ) {
-        let snapshot = WidgetSnapshot(
-            apiStatus: apiStatus,
-            balance: balance,
-            todayRequests: todayRequests,
-            todayTokens: todayTokens,
-            todayCost: todayCost,
-            apiKeyCount: apiKeyCount,
-            updatedAt: updatedAt,
-            privacyModeEnabled: preferences.privacyModeEnabled
-        )
-
-        do {
-            try widgetSnapshotStore.save(snapshot)
-            WidgetCenter.shared.reloadTimelines(ofKind: "ToCreateWidget")
-        } catch {
-            NSLog("ToCreate widget snapshot save failed: %@", error.localizedDescription)
-        }
-    }
-
     private func handleMetricsPayload(_ json: String) {
         guard let data = json.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -1171,15 +1160,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             latestSubscription = nil
             updateSubscriptionMenu(nil)
             setUpdatedAtMenuTitle("提示：\(errorMessage)")
-            writeWidgetSnapshot(
-                apiStatus: .unreachable,
-                balance: lastSuccessfulBalance,
-                todayRequests: nil,
-                todayTokens: nil,
-                todayCost: nil,
-                apiKeyCount: nil,
-                updatedAt: Date()
-            )
             updateStatusBarMetricsFromLatestValues()
             return
         }
@@ -1216,16 +1196,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         updateStatusBarMetricsTitle(metricDisplay)
 
         let updatedAt = Date()
-        writeWidgetSnapshot(
-            apiStatus: .reachable,
-            balance: displayBalance,
-            todayRequests: todayRequests,
-            todayTokens: todayTokens,
-            todayCost: todayCost,
-            apiKeyCount: apiKeyCount,
-            updatedAt: updatedAt
-        )
-
         setRequestsMenuTitle(metricTitle("请求", "\(MetricsFormatter.integer(todayRequests)) 次"))
         setTokensMenuTitle(metricTitle("Tokens", MetricsFormatter.compactInteger(todayTokens)))
         setCostMenuTitle(metricTitle("费用", metricDisplay.todayCostText))
@@ -1651,51 +1621,183 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private func downloadAndOpenUpdate(_ update: AppUpdateInfo) {
         let updatesDirectory = updateDownloadsDirectory()
         let destinationURL = UpdateDownloadPlanner.destinationURL(for: update, updatesDirectory: updatesDirectory)
+        pendingUpdateDownload = PendingUpdateDownload(
+            update: update,
+            updatesDirectory: updatesDirectory,
+            destinationURL: destinationURL
+        )
+        showUpdateProgressWindow(for: update)
 
-        URLSession.shared.downloadTask(with: update.downloadURL) { [weak self] temporaryURL, _, error in
-            guard let self else {
-                return
-            }
-
-            if let error {
-                DispatchQueue.main.async {
-                    self.showUpdateDownloadFailed(error.localizedDescription)
-                }
-                return
-            }
-
-            guard let temporaryURL else {
-                DispatchQueue.main.async {
-                    self.showUpdateDownloadFailed("没有收到下载文件。")
-                }
-                return
-            }
-
-            do {
-                try FileManager.default.createDirectory(
-                    at: updatesDirectory,
-                    withIntermediateDirectories: true
-                )
-                if FileManager.default.fileExists(atPath: destinationURL.path) {
-                    try FileManager.default.removeItem(at: destinationURL)
-                }
-                try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
-
-                DispatchQueue.main.async {
-                    self.installAndRelaunchUpdate(from: destinationURL)
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.showUpdateDownloadFailed(error.localizedDescription)
-                }
-            }
-        }.resume()
+        updateDownloadSession?.invalidateAndCancel()
+        let session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
+        updateDownloadSession = session
+        let task = session.downloadTask(with: update.downloadURL)
+        updateProgressTask = task
+        task.resume()
     }
 
     private func updateDownloadsDirectory() -> URL {
         let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         return cachesDirectory.appendingPathComponent("Updates", isDirectory: true)
+    }
+
+    private func makeUpdateProgressWindow(for update: AppUpdateInfo) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 150),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "正在更新 \(AppBranding.displayName)"
+        window.isReleasedWhenClosed = false
+        window.level = .floating
+
+        let contentView = NSView()
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = NSTextField(labelWithString: "正在下载 \(AppBranding.displayName) \(update.version)")
+        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleLabel.textColor = .labelColor
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let detailLabel = NSTextField(labelWithString: "正在连接更新服务器…")
+        detailLabel.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let progressIndicator = NSProgressIndicator()
+        progressIndicator.minValue = 0
+        progressIndicator.maxValue = 100
+        progressIndicator.doubleValue = 0
+        progressIndicator.isIndeterminate = true
+        progressIndicator.style = .bar
+        progressIndicator.controlSize = .regular
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        progressIndicator.startAnimation(nil)
+
+        contentView.addSubview(titleLabel)
+        contentView.addSubview(detailLabel)
+        contentView.addSubview(progressIndicator)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 24),
+
+            progressIndicator.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            progressIndicator.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            progressIndicator.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 22),
+
+            detailLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            detailLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            detailLabel.topAnchor.constraint(equalTo: progressIndicator.bottomAnchor, constant: 12),
+            detailLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -20)
+        ])
+
+        window.contentView = contentView
+        updateProgressIndicator = progressIndicator
+        updateProgressLabel = detailLabel
+        return window
+    }
+
+    private func showUpdateProgressWindow(for update: AppUpdateInfo) {
+        let progressWindow = updateProgressWindow ?? makeUpdateProgressWindow(for: update)
+        updateProgressWindow = progressWindow
+        updateProgressIndicator?.isIndeterminate = true
+        updateProgressIndicator?.doubleValue = 0
+        updateProgressIndicator?.startAnimation(nil)
+        updateProgressLabel?.stringValue = "正在连接更新服务器…"
+        progressWindow.center()
+        progressWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func updateDownloadProgress(totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else {
+            updateProgressIndicator?.isIndeterminate = true
+            updateProgressIndicator?.startAnimation(nil)
+            updateProgressLabel?.stringValue = "正在下载，等待服务器返回文件大小…"
+            return
+        }
+
+        let percent = min(100, max(0, Double(totalBytesWritten) / Double(totalBytesExpectedToWrite) * 100))
+        updateProgressIndicator?.stopAnimation(nil)
+        updateProgressIndicator?.isIndeterminate = false
+        updateProgressIndicator?.doubleValue = percent
+        updateProgressLabel?.stringValue = "正在下载：\(Int(percent.rounded()))%"
+    }
+
+    private func updateDownloadPreparingToInstall() {
+        updateProgressIndicator?.stopAnimation(nil)
+        updateProgressIndicator?.isIndeterminate = false
+        updateProgressIndicator?.doubleValue = 100
+        updateProgressLabel?.stringValue = "准备安装…"
+    }
+
+    private func closeUpdateProgressWindow() {
+        updateProgressWindow?.orderOut(nil)
+        updateProgressWindow = nil
+        updateProgressIndicator = nil
+        updateProgressLabel = nil
+    }
+
+    private func completeUpdateDownload(from temporaryURL: URL) {
+        guard let pendingUpdateDownload else {
+            showUpdateDownloadFailed("没有找到更新下载任务。")
+            return
+        }
+
+        do {
+            try FileManager.default.createDirectory(
+                at: pendingUpdateDownload.updatesDirectory,
+                withIntermediateDirectories: true
+            )
+            if FileManager.default.fileExists(atPath: pendingUpdateDownload.destinationURL.path) {
+                try FileManager.default.removeItem(at: pendingUpdateDownload.destinationURL)
+            }
+            try FileManager.default.moveItem(at: temporaryURL, to: pendingUpdateDownload.destinationURL)
+
+            updateDownloadPreparingToInstall()
+            installAndRelaunchUpdate(from: pendingUpdateDownload.destinationURL)
+        } catch {
+            closeUpdateProgressWindow()
+            showUpdateDownloadFailed(error.localizedDescription)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        updateDownloadProgress(
+            totalBytesWritten: totalBytesWritten,
+            totalBytesExpectedToWrite: totalBytesExpectedToWrite
+        )
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
+        completeUpdateDownload(from: location)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        guard let error else {
+            return
+        }
+
+        closeUpdateProgressWindow()
+        showUpdateDownloadFailed(error.localizedDescription)
     }
 
     private func installAndRelaunchUpdate(from dmgURL: URL) {
@@ -1718,12 +1820,17 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
             NSApp.terminate(nil)
         } catch {
-            showUpdateDownloadFailed("更新已下载，但自动安装失败：\(error.localizedDescription)\n\n安装包位置：\(dmgURL.path)")
+            showUpdateDownloadFailed("更新已下载，但自动安装失败：\(error.localizedDescription)\n\n\(UpdateGatekeeperFallback.message)\n\n安装包位置：\(dmgURL.path)")
             NSWorkspace.shared.open(dmgURL)
         }
     }
 
     private func showUpdateDownloadFailed(_ message: String) {
+        pendingUpdateDownload = nil
+        updateProgressTask = nil
+        updateDownloadSession?.invalidateAndCancel()
+        updateDownloadSession = nil
+        closeUpdateProgressWindow()
         let alert = NSAlert()
         alert.messageText = "下载更新失败"
         alert.informativeText = message

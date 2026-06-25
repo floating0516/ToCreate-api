@@ -755,9 +755,17 @@ enum UpdateDownloadPlanner {
     }
 }
 
+enum UpdateGatekeeperFallback {
+    static let message = "更新已安装，但 macOS 可能需要你手动允许打开。请前往 系统设置 > 隐私与安全性，在安全性提示中选择允许打开 ToCreate。"
+}
+
 enum UpdateInstallerScript {
     static func makeScript(dmgPath: String, appName: String, installPath: String) -> String {
+        let gatekeeperAlert = """
+        display alert "ToCreate 更新提示" message \(appleScriptQuoted(UpdateGatekeeperFallback.message)) as warning buttons {"好"} default button "好"
         """
+
+        return """
         #!/bin/bash
         set -euo pipefail
 
@@ -776,12 +784,20 @@ enum UpdateInstallerScript {
         hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
         ditto "$MOUNT_DIR/$APP_NAME" "$INSTALL_PATH"
         xattr -dr com.apple.quarantine "$INSTALL_PATH" >/dev/null 2>&1 || true
-        open "$INSTALL_PATH"
+        open "$INSTALL_PATH" || osascript -e \(shellQuoted(gatekeeperAlert))
         """
     }
 
     private static func shellQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private static func appleScriptQuoted(_ value: String) -> String {
+        "\"" + value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            + "\""
     }
 }
 

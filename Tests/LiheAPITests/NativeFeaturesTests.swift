@@ -403,6 +403,15 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertLessThan(fallbackRange.lowerBound, windowRange.lowerBound)
     }
 
+    func testDockReopenRestoresMainWindowAfterClose() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("applicationShouldHandleReopen"))
+        XCTAssertTrue(appSource.contains("hasVisibleWindows"))
+        XCTAssertTrue(appSource.contains("showWindow()"))
+        XCTAssertTrue(appSource.contains("return true"))
+    }
+
     func testSubscriptionPayloadParserBuildsDashboardMetrics() {
         let subscription = SubscriptionPayloadParser.subscriptionInfo([
             "name": "pro拼车",
@@ -560,14 +569,13 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertNil(try store.load())
     }
 
-    func testMainAppWritesWidgetSnapshotAfterMetricsRefresh() throws {
+    func testMainAppPausesWidgetSnapshotSharingToAvoidAppGroupPrompt() throws {
         let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
-        XCTAssertTrue(appSource.contains("private let widgetSnapshotStore = WidgetSnapshotStore()"))
-        XCTAssertTrue(appSource.contains("writeWidgetSnapshot("))
-        XCTAssertTrue(appSource.contains("WidgetSnapshot("))
-        XCTAssertTrue(appSource.contains("privacyModeEnabled: preferences.privacyModeEnabled"))
-        XCTAssertTrue(appSource.contains("WidgetCenter.shared.reloadTimelines(ofKind: \"ToCreateWidget\")"))
+        XCTAssertFalse(appSource.contains("private let widgetSnapshotStore = WidgetSnapshotStore()"))
+        XCTAssertFalse(appSource.contains("writeWidgetSnapshot("))
+        XCTAssertFalse(appSource.contains("WidgetSnapshot("))
+        XCTAssertFalse(appSource.contains("WidgetCenter.shared.reloadTimelines(ofKind: \"ToCreateWidget\")"))
     }
 
     func testAppRegistersToCreateURLSchemeForWidgetOpen() throws {
@@ -632,13 +640,13 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertFalse(view.contains("ZStack {\n            LinearGradient("))
     }
 
-    func testAppAndWidgetEntitlementsUseSameAppGroup() throws {
+    func testMainAppDoesNotRequestAppGroupWhileWidgetFeatureIsPaused() throws {
         let appEntitlements = try String(contentsOfFile: Self.projectFile("Resources/ToCreate.entitlements"))
         let widgetEntitlements = try String(contentsOfFile: Self.projectFile("ToCreateWidget/ToCreateWidget.entitlements"))
 
-        XCTAssertTrue(appEntitlements.contains("group.chat.lihe.api.mac"))
+        XCTAssertFalse(appEntitlements.contains("group.chat.lihe.api.mac"))
+        XCTAssertFalse(appEntitlements.contains("com.apple.security.application-groups"))
         XCTAssertTrue(widgetEntitlements.contains("group.chat.lihe.api.mac"))
-        XCTAssertTrue(appEntitlements.contains("com.apple.security.application-groups"))
         XCTAssertTrue(widgetEntitlements.contains("com.apple.security.application-groups"))
         XCTAssertTrue(appEntitlements.contains("com.apple.security.app-sandbox"))
         XCTAssertTrue(widgetEntitlements.contains("com.apple.security.app-sandbox"))
@@ -944,6 +952,20 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertFalse(appSource.contains(".downloadsDirectory"))
     }
 
+    func testUpdateDownloadShowsUserVisibleProgress() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("URLSessionDownloadDelegate"))
+        XCTAssertTrue(appSource.contains("makeUpdateProgressWindow"))
+        XCTAssertTrue(appSource.contains("updateProgressIndicator"))
+        XCTAssertTrue(appSource.contains("updateProgressLabel"))
+        XCTAssertTrue(appSource.contains("didWriteData bytesWritten"))
+        XCTAssertTrue(appSource.contains("totalBytesExpectedToWrite"))
+        XCTAssertTrue(appSource.contains("正在下载"))
+        XCTAssertTrue(appSource.contains("准备安装"))
+        XCTAssertFalse(appSource.contains("URLSession.shared.downloadTask(with: update.downloadURL) {"))
+    }
+
     func testUpdateInstallerScriptMountsDmgCopiesAppAndRelaunches() {
         let script = UpdateInstallerScript.makeScript(
             dmgPath: "/Users/test/Downloads/ToCreate-v0.1.2.dmg",
@@ -957,6 +979,23 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("/Applications/ToCreate.app"))
         XCTAssertTrue(script.contains("open \"$INSTALL_PATH\""))
         XCTAssertTrue(script.contains("ToCreate.app"))
+    }
+
+    func testUpdateInstallFallbackExplainsGatekeeperManualOpen() throws {
+        let script = UpdateInstallerScript.makeScript(
+            dmgPath: "/Users/test/Downloads/ToCreate-v0.1.2.dmg",
+            appName: AppBranding.bundleAppName,
+            installPath: "/Applications/ToCreate.app"
+        )
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+        let nativeFeaturesSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/NativeFeatures.swift"))
+
+        XCTAssertTrue(script.contains("更新已安装，但 macOS 可能需要你手动允许打开。"))
+        XCTAssertTrue(script.contains("系统设置 > 隐私与安全性"))
+        XCTAssertTrue(script.contains("允许打开"))
+        XCTAssertTrue(script.contains("open \"$INSTALL_PATH\" || osascript"))
+        XCTAssertTrue(appSource.contains("UpdateGatekeeperFallback.message"))
+        XCTAssertTrue(nativeFeaturesSource.contains("系统设置 > 隐私与安全性"))
     }
 
     func testVersionComparatorHandlesSemanticVersions() {
