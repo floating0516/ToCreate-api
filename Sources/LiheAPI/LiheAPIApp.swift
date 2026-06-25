@@ -362,7 +362,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             return
         }
 
-        let image = makeLucideDogStatusImage(color: state.color, accessibilityLabel: state.accessibilityLabel)
+        let image = makeLucideDogStatusImage(statusColor: state.color, accessibilityLabel: state.accessibilityLabel)
         image?.isTemplate = false
         button.image = image
         button.toolTip = state.accessibilityLabel
@@ -404,7 +404,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         updateStatusBarMetricsTitle(display)
     }
 
-    private func makeLucideDogStatusImage(color: NSColor, accessibilityLabel: String) -> NSImage? {
+    private func makeLucideDogStatusImage(statusColor: NSColor, accessibilityLabel: String) -> NSImage? {
         let lucideDogNosePath = "M11.25 16.25h1.5L12 17z"
         _ = lucideDogNosePath
 
@@ -412,8 +412,9 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         image.accessibilityDescription = accessibilityLabel
         image.lockFocus()
 
-        color.setStroke()
-        color.setFill()
+        let iconColor = NSColor.white
+        iconColor.setStroke()
+        iconColor.setFill()
 
         let scale = 18.0 / 24.0
         let transform = AffineTransform(
@@ -449,10 +450,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         headFill.curve(to: NSPoint(x: 4, y: 14.556), controlPoint1: NSPoint(x: 7.582, y: 21), controlPoint2: NSPoint(x: 4, y: 18.728))
         headFill.curve(to: NSPoint(x: 4.42, y: 11.247), controlPoint1: NSPoint(x: 4, y: 13.45), controlPoint2: NSPoint(x: 4.14, y: 12.35))
         headFill.close()
-        color.withAlphaComponent(0.35).setFill()
+        iconColor.withAlphaComponent(0.35).setFill()
         transformedPath(headFill).fill()
-        color.setStroke()
-        color.setFill()
+        iconColor.setStroke()
+        iconColor.setFill()
 
         let face = NSBezierPath()
         face.move(to: NSPoint(x: 4.42, y: 11.247))
@@ -494,8 +495,16 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         transformedNose.transform(using: transform)
         transformedNose.fill()
 
+        NSColor.black.withAlphaComponent(0.28).setFill()
+        let statusDotBacking = NSBezierPath(ovalIn: NSRect(x: 11.3, y: 1.1, width: 6.8, height: 6.8))
+        statusDotBacking.fill()
+
+        statusColor.setFill()
+        let statusDot = NSBezierPath(ovalIn: NSRect(x: 12.1, y: 1.9, width: 5.2, height: 5.2))
+        statusDot.fill()
+
         image.unlockFocus()
-        image.isTemplate = true
+        image.isTemplate = false
         return image
     }
 

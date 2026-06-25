@@ -580,15 +580,19 @@ final class NativeFeaturesTests: XCTestCase {
 
         XCTAssertTrue(appSource.contains("makeLucideDogStatusImage"))
         XCTAssertTrue(appSource.contains("M11.25 16.25h1.5L12 17z"))
-        XCTAssertTrue(appSource.contains("let image = makeLucideDogStatusImage(color: state.color, accessibilityLabel: state.accessibilityLabel)"))
+        XCTAssertTrue(appSource.contains("let image = makeLucideDogStatusImage(statusColor: state.color, accessibilityLabel: state.accessibilityLabel)"))
         XCTAssertTrue(appSource.contains("transformed.lineWidth = 1.45"))
-        XCTAssertTrue(appSource.contains("color.withAlphaComponent(0.35).setFill()"))
+        XCTAssertTrue(appSource.contains("let iconColor = NSColor.white"))
+        XCTAssertTrue(appSource.contains("iconColor.withAlphaComponent(0.35).setFill()"))
+        XCTAssertTrue(appSource.contains("let statusDot = NSBezierPath(ovalIn: NSRect(x: 12.1, y: 1.9, width: 5.2, height: 5.2))"))
+        XCTAssertTrue(appSource.contains("statusColor.setFill()"))
         XCTAssertTrue(appSource.contains("transformedPath(headFill).fill()"))
-        XCTAssertTrue(appSource.contains("color.setStroke()"))
-        XCTAssertTrue(appSource.contains("color.setFill()"))
+        XCTAssertTrue(appSource.contains("iconColor.setStroke()"))
+        XCTAssertTrue(appSource.contains("iconColor.setFill()"))
         XCTAssertTrue(appSource.contains("button.contentTintColor = nil"))
         XCTAssertFalse(appSource.contains("NSImage(systemSymbolName: state.symbolName"))
         XCTAssertFalse(appSource.contains("button.contentTintColor = state.color"))
+        XCTAssertFalse(appSource.contains("makeLucideDogStatusImage(color: state.color"))
     }
 
     func testLaunchAtLoginUsesNativeServiceManagementAndPreferencesUI() throws {
