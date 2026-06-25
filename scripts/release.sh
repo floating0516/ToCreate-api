@@ -8,9 +8,16 @@ DMG="$ROOT/dist/ToCreate.dmg"
 REPO="floating0516/ToCreate-api"
 
 usage() {
-    echo "Usage: ./scripts/release.sh <version> <release-notes>" >&2
+    echo "Usage: ./scripts/release.sh [--dry-run] <version> <release-notes>" >&2
     echo "Example: ./scripts/release.sh 0.1.2 \"修复更新检查问题\"" >&2
 }
+
+DRY_RUN=0
+
+if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN=1
+    shift
+fi
 
 if [[ $# -lt 2 ]]; then
     usage
@@ -29,9 +36,14 @@ fi
 cd "$ROOT"
 
 if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Git working tree is not clean. Commit or stash current changes before releasing." >&2
-    git status --short >&2
-    exit 1
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "Working tree has uncommitted changes; dry run will not modify them." >&2
+        git status --short >&2
+    else
+        echo "Git working tree is not clean. Commit or stash current changes before releasing." >&2
+        git status --short >&2
+        exit 1
+    fi
 fi
 
 if ! gh auth status >/dev/null 2>&1; then
@@ -50,7 +62,22 @@ if git ls-remote --tags origin "v$VERSION" | grep -q "v$VERSION"; then
 fi
 
 CURRENT_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
+CURRENT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
 NEXT_BUILD="$((CURRENT_BUILD + 1))"
+
+cat <<SUMMARY
+Release summary
+Current version: $CURRENT_VERSION ($CURRENT_BUILD)
+New version:     $VERSION ($NEXT_BUILD)
+Tag:             v$VERSION
+DMG:             $DMG
+Release notes:   $RELEASE_NOTES
+SUMMARY
+
+if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "Dry run only. No files were changed."
+    exit 0
+fi
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEXT_BUILD" "$INFO_PLIST"
