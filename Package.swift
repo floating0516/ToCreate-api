@@ -17,6 +17,7 @@ let package = Package(
                 "Tests",
                 "ToCreateWidget",
                 "docs",
+                "dist",
                 "scripts"
             ],
             sources: [

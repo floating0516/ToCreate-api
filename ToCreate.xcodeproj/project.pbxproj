@@ -20,34 +20,9 @@
 		A0010000000000000000000B /* ToCreateWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000B /* ToCreateWidget.swift */; };
 		A0010000000000000000000C /* ToCreateWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000C /* ToCreateWidgetView.swift */; };
 		A0010000000000000000000D /* AppIconSource.png in Resources */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000D /* AppIconSource.png */; };
-		A0010000000000000000000E /* ToCreateWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A0020000000000000000000F /* ToCreateWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A0010000000000000000000F /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000012 /* AppIcon.icns */; };
 		A00100000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00200000000000000000013 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		A00300000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A00400000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A00500000000000000000002;
-			remoteInfo = ToCreateWidgetExtension;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		A00600000000000000000001 /* Embed App Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				A0010000000000000000000E /* ToCreateWidget.appex in Embed App Extensions */,
-			);
-			name = "Embed App Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A00200000000000000000001 /* LiheAPIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiheAPIApp.swift; sourceTree = "<group>"; };
@@ -160,12 +135,9 @@
 				A00A00000000000000000001 /* Sources */,
 				A00700000000000000000001 /* Frameworks */,
 				A00B00000000000000000001 /* Resources */,
-				A00600000000000000000001 /* Embed App Extensions */,
 			);
 			buildRules = ();
-			dependencies = (
-				A00C00000000000000000001 /* PBXTargetDependency */,
-			);
+			dependencies = ();
 			name = ToCreate;
 			productName = ToCreate;
 			productReference = A00200000000000000000010 /* ToCreate.app */;
@@ -271,14 +243,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		A00C00000000000000000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A00500000000000000000002 /* ToCreateWidgetExtension */;
-			targetProxy = A00300000000000000000001 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A00D00000000000000000001 /* Debug */ = {

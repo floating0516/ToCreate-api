@@ -169,6 +169,8 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(preferences.balanceAlertThreshold, 100)
         XCTAssertFalse(preferences.dailyCostAlertEnabled)
         XCTAssertEqual(preferences.dailyCostAlertThreshold, 10)
+        XCTAssertEqual(preferences.statusBarMetricOptions, [.balance, .todayCost])
+        XCTAssertEqual(StatusBarMetricOption.allCases, [.balance, .todayCost, .todayRequests, .todayTokens])
     }
 
     func testRefreshIntervalOptionsExposeMenuTitlesAndSeconds() {
@@ -193,6 +195,7 @@ final class NativeFeaturesTests: XCTestCase {
         preferences.balanceAlertThreshold = 42.5
         preferences.dailyCostAlertEnabled = true
         preferences.dailyCostAlertThreshold = 3.25
+        preferences.statusBarMetricOptions = [.todayRequests, .todayTokens]
 
         store.save(preferences)
 
@@ -202,6 +205,8 @@ final class NativeFeaturesTests: XCTestCase {
     func testMetricDisplayRespectsPrivacyMode() {
         let publicDisplay = StatusMetricDisplay(
             balance: 399_481.574,
+            todayRequests: 277.2,
+            todayTokens: 217_100_000,
             todayCost: 7.7457,
             apiKeyCount: 6,
             preferences: .default
@@ -209,12 +214,17 @@ final class NativeFeaturesTests: XCTestCase {
 
         XCTAssertEqual(publicDisplay.balanceText, "$399,481.57")
         XCTAssertEqual(publicDisplay.todayCostText, "$7.75")
+        XCTAssertEqual(publicDisplay.todayRequestsText, "277 次")
+        XCTAssertEqual(publicDisplay.tokensText, "217.1M")
         XCTAssertEqual(publicDisplay.apiKeyCountText, "6 个")
+        XCTAssertEqual(publicDisplay.statusBarTitle, "余 $399.5K  费 $7.75")
 
         var privatePreferences = AppPreferences.default
         privatePreferences.privacyModeEnabled = true
         let privateDisplay = StatusMetricDisplay(
             balance: 399_481.574,
+            todayRequests: 277.2,
+            todayTokens: 217_100_000,
             todayCost: 7.7457,
             apiKeyCount: 6,
             preferences: privatePreferences
@@ -223,6 +233,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(privateDisplay.balanceText, "已隐藏")
         XCTAssertEqual(privateDisplay.todayCostText, "已隐藏")
         XCTAssertEqual(privateDisplay.apiKeyCountText, "已隐藏")
+        XCTAssertEqual(privateDisplay.statusBarTitle, "余 已隐藏  费 已隐藏")
     }
 
     func testWidgetSnapshotCodableRoundTrip() throws {
@@ -448,6 +459,15 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(project.contains("CODE_SIGN_ENTITLEMENTS = ToCreateWidget/ToCreateWidget.entitlements"))
     }
 
+    func testMainAppDoesNotEmbedWidgetExtensionWhileFeatureIsPaused() throws {
+        let project = try String(contentsOfFile: Self.projectFile("ToCreate.xcodeproj/project.pbxproj"))
+
+        XCTAssertFalse(project.contains("ToCreateWidget.appex in Embed App Extensions"))
+        XCTAssertFalse(project.contains("Embed App Extensions"))
+        XCTAssertFalse(project.contains("remoteInfo = ToCreateWidgetExtension;"))
+        XCTAssertFalse(project.contains("target = A00500000000000000000002 /* ToCreateWidgetExtension */;"))
+    }
+
     func testMainAppInfoPlistUsesXcodeExecutableName() throws {
         let plist = try String(contentsOfFile: Self.projectFile("Resources/Info.plist"))
 
@@ -512,15 +532,17 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testPreferencesWindowUsesCompactAlignedLayout() throws {
-        XCTAssertEqual(PreferencesWindowPresentation.width, 460)
-        XCTAssertEqual(PreferencesWindowPresentation.height, 364)
+        XCTAssertEqual(PreferencesWindowPresentation.width, 540)
+        XCTAssertEqual(PreferencesWindowPresentation.height, 440)
         XCTAssertEqual(PreferencesWindowPresentation.labelColumnWidth, 108)
-        XCTAssertEqual(PreferencesWindowPresentation.controlColumnWidth, 190)
+        XCTAssertEqual(PreferencesWindowPresentation.controlColumnWidth, 330)
         XCTAssertTrue(PreferencesWindowPresentation.layoutUsesAlignedGrid)
 
         let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
         XCTAssertTrue(appSource.contains("PreferencesWindowPresentation.width"))
         XCTAssertTrue(appSource.contains("makePreferenceRow"))
+        XCTAssertTrue(appSource.contains("makeStatusBarMetricOptionsRow"))
+        XCTAssertTrue(appSource.contains("statusBarMetricCheckboxes"))
         XCTAssertTrue(appSource.contains("buttonRow.topAnchor.constraint"))
     }
 
@@ -541,15 +563,32 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testStatusBarStateDefinesIconColorAndAccessibilityLabel() {
-        XCTAssertEqual(StatusBarState.healthy.symbolName, "checkmark.circle.fill")
+        XCTAssertEqual(StatusBarState.healthy.symbolName, "dog")
+        XCTAssertEqual(StatusBarState.partial.symbolName, "dog")
+        XCTAssertEqual(StatusBarState.unavailable.symbolName, "dog")
+        XCTAssertEqual(StatusBarState.offline.symbolName, "dog")
+        XCTAssertEqual(StatusBarState.refreshing.symbolName, "dog")
         XCTAssertEqual(StatusBarState.healthy.colorName, "systemGreen")
-        XCTAssertEqual(StatusBarState.partial.symbolName, "exclamationmark.circle.fill")
         XCTAssertEqual(StatusBarState.partial.colorName, "systemOrange")
-        XCTAssertEqual(StatusBarState.unavailable.symbolName, "xmark.circle.fill")
         XCTAssertEqual(StatusBarState.unavailable.colorName, "systemRed")
-        XCTAssertEqual(StatusBarState.offline.symbolName, "circle.dashed")
         XCTAssertEqual(StatusBarState.offline.colorName, "secondaryLabelColor")
         XCTAssertEqual(StatusBarState.refreshing.accessibilityLabel, "ToCreate 正在刷新")
+    }
+
+    func testStatusBarIconUsesLucideDogAsset() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("makeLucideDogStatusImage"))
+        XCTAssertTrue(appSource.contains("M11.25 16.25h1.5L12 17z"))
+        XCTAssertTrue(appSource.contains("let image = makeLucideDogStatusImage(color: state.color, accessibilityLabel: state.accessibilityLabel)"))
+        XCTAssertTrue(appSource.contains("transformed.lineWidth = 1.45"))
+        XCTAssertTrue(appSource.contains("color.withAlphaComponent(0.35).setFill()"))
+        XCTAssertTrue(appSource.contains("transformedPath(headFill).fill()"))
+        XCTAssertTrue(appSource.contains("color.setStroke()"))
+        XCTAssertTrue(appSource.contains("color.setFill()"))
+        XCTAssertTrue(appSource.contains("button.contentTintColor = nil"))
+        XCTAssertFalse(appSource.contains("NSImage(systemSymbolName: state.symbolName"))
+        XCTAssertFalse(appSource.contains("button.contentTintColor = state.color"))
     }
 
     func testLaunchAtLoginUsesNativeServiceManagementAndPreferencesUI() throws {
@@ -703,7 +742,7 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("gh release create \"v$VERSION\""))
     }
 
-    func testPackageScriptBuildsXcodeAppAndSignsWidgetBundle() throws {
+    func testPackageScriptBuildsXcodeAppWithoutWidgetBundleWhileFeatureIsPaused() throws {
         let script = try String(contentsOfFile: Self.projectFile("scripts/package_app.sh"))
 
         XCTAssertTrue(script.contains("xcodebuild"))
@@ -718,7 +757,8 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("CODE_SIGNING_ALLOWED=NO"))
         XCTAssertTrue(script.contains("ditto \"$DERIVED_DATA/Build/Products/Release/ToCreate.app\" \"$APP\""))
         XCTAssertTrue(script.contains("Keeping Xcode-managed development signature and provisioning profiles."))
-        XCTAssertTrue(script.contains("ToCreateWidget.entitlements"))
+        XCTAssertFalse(script.contains("ToCreateWidget.entitlements"))
+        XCTAssertFalse(script.contains("ToCreateWidget.appex"))
         XCTAssertTrue(script.contains("Resources/ToCreate.entitlements"))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict \"$APP\""))
     }

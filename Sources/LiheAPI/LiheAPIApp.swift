@@ -44,11 +44,18 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var balanceThresholdField: NSTextField?
     private var dailyCostAlertCheckbox: NSButton?
     private var dailyCostThresholdField: NSTextField?
+    private var statusBarMetricCheckboxes: [StatusBarMetricOption: NSButton] = [:]
     private var channelAlertIsActive = false
     private var balanceAlertIsActive = false
     private var dailyCostAlertIsActive = false
     private var balanceRetryAttemptsRemaining = 0
     private var lastSuccessfulBalance: Double?
+    private var latestBalance: Double?
+    private var latestTodayRequests: Double?
+    private var latestTodayTokens: Double?
+    private var latestTodayCost: Double?
+    private var latestAPIKeyCount: Double?
+    private var statusBarTitle = ""
     private let updateFeedURL = URL(string: "https://api.github.com/repos/floating0516/ToCreate-api/releases/latest")!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -194,7 +201,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     }
 
     private func buildStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.imagePosition = .imageOnly
         updateStatusBarIcon(.offline)
 
@@ -355,11 +362,141 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             return
         }
 
-        let image = NSImage(systemSymbolName: state.symbolName, accessibilityDescription: state.accessibilityLabel)
+        let image = makeLucideDogStatusImage(color: state.color, accessibilityLabel: state.accessibilityLabel)
         image?.isTemplate = false
         button.image = image
-        button.contentTintColor = state.color
         button.toolTip = state.accessibilityLabel
+        applyStatusItemTitle()
+    }
+
+    private func applyStatusItemTitle() {
+        guard let button = statusItem?.button else {
+            return
+        }
+
+        let title = statusBarTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        statusItem.length = title.isEmpty ? NSStatusItem.squareLength : NSStatusItem.variableLength
+        button.imagePosition = title.isEmpty ? .imageOnly : .imageLeft
+        button.contentTintColor = nil
+        button.attributedTitle = NSAttributedString(
+            string: title.isEmpty ? "" : " \(title)",
+            attributes: [
+                .foregroundColor: NSColor.labelColor,
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+            ]
+        )
+    }
+
+    private func updateStatusBarMetricsTitle(_ display: StatusMetricDisplay?) {
+        statusBarTitle = display?.statusBarTitle ?? ""
+        applyStatusItemTitle()
+    }
+
+    private func updateStatusBarMetricsFromLatestValues() {
+        let display = StatusMetricDisplay(
+            balance: latestBalance,
+            todayRequests: latestTodayRequests,
+            todayTokens: latestTodayTokens,
+            todayCost: latestTodayCost,
+            apiKeyCount: latestAPIKeyCount,
+            preferences: preferences
+        )
+        updateStatusBarMetricsTitle(display)
+    }
+
+    private func makeLucideDogStatusImage(color: NSColor, accessibilityLabel: String) -> NSImage? {
+        let lucideDogNosePath = "M11.25 16.25h1.5L12 17z"
+        _ = lucideDogNosePath
+
+        let image = NSImage(size: NSSize(width: 18, height: 18))
+        image.accessibilityDescription = accessibilityLabel
+        image.lockFocus()
+
+        color.setStroke()
+        color.setFill()
+
+        let scale = 18.0 / 24.0
+        let transform = AffineTransform(
+            m11: scale,
+            m12: 0,
+            m21: 0,
+            m22: -scale,
+            tX: 0,
+            tY: 18
+        )
+
+        func transformedPath(_ path: NSBezierPath) -> NSBezierPath {
+            let transformed = path
+            transformed.transform(using: transform)
+            return transformed
+        }
+
+        func draw(_ path: NSBezierPath) {
+            let transformed = transformedPath(path)
+            transformed.lineWidth = 1.45
+            transformed.lineCapStyle = .round
+            transformed.lineJoinStyle = .round
+            transformed.stroke()
+        }
+
+        let headFill = NSBezierPath()
+        headFill.move(to: NSPoint(x: 4.42, y: 11.247))
+        headFill.curve(to: NSPoint(x: 8.2, y: 5.25), controlPoint1: NSPoint(x: 4.72, y: 8.75), controlPoint2: NSPoint(x: 6.05, y: 5.78))
+        headFill.curve(to: NSPoint(x: 15.8, y: 5.25), controlPoint1: NSPoint(x: 10.5, y: 4.7), controlPoint2: NSPoint(x: 13.5, y: 4.7))
+        headFill.curve(to: NSPoint(x: 19.507, y: 11.247), controlPoint1: NSPoint(x: 17.95, y: 5.78), controlPoint2: NSPoint(x: 19.2, y: 8.75))
+        headFill.curve(to: NSPoint(x: 20, y: 14.556), controlPoint1: NSPoint(x: 19.83, y: 12.25), controlPoint2: NSPoint(x: 20, y: 13.34))
+        headFill.curve(to: NSPoint(x: 12, y: 21), controlPoint1: NSPoint(x: 20, y: 18.728), controlPoint2: NSPoint(x: 16.418, y: 21))
+        headFill.curve(to: NSPoint(x: 4, y: 14.556), controlPoint1: NSPoint(x: 7.582, y: 21), controlPoint2: NSPoint(x: 4, y: 18.728))
+        headFill.curve(to: NSPoint(x: 4.42, y: 11.247), controlPoint1: NSPoint(x: 4, y: 13.45), controlPoint2: NSPoint(x: 4.14, y: 12.35))
+        headFill.close()
+        color.withAlphaComponent(0.35).setFill()
+        transformedPath(headFill).fill()
+        color.setStroke()
+        color.setFill()
+
+        let face = NSBezierPath()
+        face.move(to: NSPoint(x: 4.42, y: 11.247))
+        face.curve(to: NSPoint(x: 4, y: 14.556), controlPoint1: NSPoint(x: 4.14, y: 12.35), controlPoint2: NSPoint(x: 4, y: 13.45))
+        face.curve(to: NSPoint(x: 12, y: 21), controlPoint1: NSPoint(x: 4, y: 18.728), controlPoint2: NSPoint(x: 7.582, y: 21))
+        face.curve(to: NSPoint(x: 20, y: 14.556), controlPoint1: NSPoint(x: 16.418, y: 21), controlPoint2: NSPoint(x: 20, y: 18.728))
+        face.curve(to: NSPoint(x: 19.507, y: 11.247), controlPoint1: NSPoint(x: 20, y: 13.34), controlPoint2: NSPoint(x: 19.83, y: 12.25))
+        draw(face)
+
+        let ears = NSBezierPath()
+        ears.move(to: NSPoint(x: 8.5, y: 8.5))
+        ears.curve(to: NSPoint(x: 6.156, y: 11), controlPoint1: NSPoint(x: 8.116, y: 9.55), controlPoint2: NSPoint(x: 7.417, y: 10.528))
+        ears.curve(to: NSPoint(x: 2.5, y: 10), controlPoint1: NSPoint(x: 4.225, y: 11.722), controlPoint2: NSPoint(x: 2.58, y: 10.703))
+        ears.curve(to: NSPoint(x: 6.5, y: 3), controlPoint1: NSPoint(x: 2.387, y: 9.006), controlPoint2: NSPoint(x: 3.677, y: 3.47))
+        ears.curve(to: NSPoint(x: 10.151, y: 5.235), controlPoint1: NSPoint(x: 8.423, y: 2.679), controlPoint2: NSPoint(x: 10.151, y: 3.845))
+        ears.curve(to: NSPoint(x: 14, y: 5.277), controlPoint1: NSPoint(x: 11.2, y: 5.02), controlPoint2: NSPoint(x: 12.75, y: 5.02))
+        ears.curve(to: NSPoint(x: 17.767, y: 3), controlPoint1: NSPoint(x: 14, y: 3.887), controlPoint2: NSPoint(x: 15.844, y: 2.679))
+        ears.curve(to: NSPoint(x: 21.767, y: 10), controlPoint1: NSPoint(x: 20.59, y: 3.47), controlPoint2: NSPoint(x: 21.88, y: 9.006))
+        ears.curve(to: NSPoint(x: 18.111, y: 11), controlPoint1: NSPoint(x: 21.687, y: 10.703), controlPoint2: NSPoint(x: 20.042, y: 11.722))
+        ears.curve(to: NSPoint(x: 15.872, y: 8.5), controlPoint1: NSPoint(x: 16.85, y: 10.528), controlPoint2: NSPoint(x: 16.256, y: 9.55))
+        draw(ears)
+
+        let leftEye = NSBezierPath()
+        leftEye.move(to: NSPoint(x: 8, y: 14))
+        leftEye.line(to: NSPoint(x: 8, y: 14.5))
+        draw(leftEye)
+
+        let rightEye = NSBezierPath()
+        rightEye.move(to: NSPoint(x: 16, y: 14))
+        rightEye.line(to: NSPoint(x: 16, y: 14.5))
+        draw(rightEye)
+
+        let nose = NSBezierPath()
+        nose.move(to: NSPoint(x: 11.25, y: 16.25))
+        nose.line(to: NSPoint(x: 12.75, y: 16.25))
+        nose.line(to: NSPoint(x: 12, y: 17))
+        nose.close()
+        let transformedNose = nose
+        transformedNose.transform(using: transform)
+        transformedNose.fill()
+
+        image.unlockFocus()
+        image.isTemplate = true
+        return image
     }
 
     private func setRequestsMenuTitle(_ title: String) {
@@ -680,6 +817,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             setTokensMenuTitle(metricTitle("Tokens", "无法解析"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "无法解析"))
             setUpdatedAtMenuTitle(metricTitle("更新于", "—"))
+            updateStatusBarMetricsTitle(nil)
             return
         }
 
@@ -700,6 +838,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
                 apiKeyCount: nil,
                 updatedAt: Date()
             )
+            updateStatusBarMetricsTitle(nil)
             return
         }
 
@@ -714,14 +853,22 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         if let balance {
             lastSuccessfulBalance = balance
         }
+        latestBalance = displayBalance
+        latestTodayRequests = todayRequests
+        latestTodayTokens = todayTokens
+        latestTodayCost = todayCost
+        latestAPIKeyCount = apiKeyCount
         let metricDisplay = StatusMetricDisplay(
             balance: displayBalance,
+            todayRequests: todayRequests,
+            todayTokens: todayTokens,
             todayCost: todayCost,
             apiKeyCount: apiKeyCount,
             preferences: preferences
         )
 
         setServiceStatusMenuTitle(StatusMenuPresentation.serviceStatusTitles.ok, ok: 1, abnormal: 0, unknown: 0)
+        updateStatusBarMetricsTitle(metricDisplay)
 
         let updatedAt = Date()
         writeWidgetSnapshot(
@@ -783,6 +930,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         refreshIntervalPopup = popup
         popup.widthAnchor.constraint(equalToConstant: 142).isActive = true
         contentStack.addArrangedSubview(makePreferenceRow(label: "自动刷新", control: popup))
+
+        contentStack.addArrangedSubview(makeStatusBarMetricOptionsRow())
 
         let launchAtLogin = NSButton(checkboxWithTitle: "登录后自动启动", target: nil, action: nil)
         launchAtLoginCheckbox = launchAtLogin
@@ -867,6 +1016,31 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         return row
     }
 
+    private func makeStatusBarMetricOptionsRow() -> NSStackView {
+        statusBarMetricCheckboxes.removeAll()
+
+        let grid = NSGridView()
+        grid.rowSpacing = 6
+        grid.columnSpacing = 12
+
+        let rows = [
+            [StatusBarMetricOption.balance, .todayCost],
+            [StatusBarMetricOption.todayRequests, .todayTokens]
+        ]
+
+        rows.forEach { rowOptions in
+            let controls = rowOptions.map { option in
+                let checkbox = NSButton(checkboxWithTitle: option.title, target: nil, action: nil)
+                checkbox.identifier = NSUserInterfaceItemIdentifier(option.rawValue)
+                statusBarMetricCheckboxes[option] = checkbox
+                return checkbox
+            }
+            grid.addRow(with: controls)
+        }
+
+        return makePreferenceRow(label: "状态栏显示", control: grid)
+    }
+
     private func makeThresholdRow(
         label: String,
         suffix: String,
@@ -909,6 +1083,9 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         balanceThresholdField?.doubleValue = preferences.balanceAlertThreshold
         dailyCostAlertCheckbox?.state = preferences.dailyCostAlertEnabled ? .on : .off
         dailyCostThresholdField?.doubleValue = preferences.dailyCostAlertThreshold
+        StatusBarMetricOption.allCases.forEach { option in
+            statusBarMetricCheckboxes[option]?.state = preferences.statusBarMetricOptions.contains(option) ? .on : .off
+        }
     }
 
     @objc private func closePreferences() {
@@ -918,6 +1095,9 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     @objc private func savePreferences() {
         let selectedRaw = refreshIntervalPopup?.selectedItem?.representedObject as? String
         let selectedInterval = selectedRaw.flatMap(RefreshIntervalOption.init(rawValue:)) ?? .off
+        let selectedStatusBarMetricOptions = StatusBarMetricOption.allCases.filter { option in
+            statusBarMetricCheckboxes[option]?.state == .on
+        }
 
         let updated = AppPreferences(
             privacyModeEnabled: privacyCheckbox?.state == .on,
@@ -928,7 +1108,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             balanceAlertEnabled: balanceAlertCheckbox?.state == .on,
             balanceAlertThreshold: max(0, balanceThresholdField?.doubleValue ?? AppPreferences.default.balanceAlertThreshold),
             dailyCostAlertEnabled: dailyCostAlertCheckbox?.state == .on,
-            dailyCostAlertThreshold: max(0, dailyCostThresholdField?.doubleValue ?? AppPreferences.default.dailyCostAlertThreshold)
+            dailyCostAlertThreshold: max(0, dailyCostThresholdField?.doubleValue ?? AppPreferences.default.dailyCostAlertThreshold),
+            statusBarMetricOptions: selectedStatusBarMetricOptions
         )
         applyPreferences(updated)
         preferencesWindow?.close()
@@ -939,6 +1120,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         preferencesStore.save(updated)
         configureMetricsRefreshTimer()
         configureLaunchAtLogin(updated.launchAtLoginEnabled, showErrors: true)
+        updateStatusBarMetricsFromLatestValues()
         refreshMetricsForStatusMenu()
     }
 

@@ -65,6 +65,21 @@ enum MetricsFormatter {
         return formatter.string(from: NSNumber(value: value)) ?? "$" + String(format: "%.2f", value)
     }
 
+    static func compactCurrency(_ value: Double?) -> String {
+        guard let value else {
+            return "—"
+        }
+
+        let absolute = abs(value)
+        if absolute >= 1_000_000 {
+            return String(format: "$%.1fM", value / 1_000_000)
+        }
+        if absolute >= 1_000 {
+            return String(format: "$%.1fK", value / 1_000)
+        }
+        return displayCurrency(value)
+    }
+
     static func integer(_ value: Double?) -> String {
         guard let value else {
             return "—"
@@ -197,13 +212,13 @@ enum StatusMenuPresentation {
 }
 
 enum PreferencesWindowPresentation {
-    static let width: CGFloat = 460
-    static let height: CGFloat = 364
+    static let width: CGFloat = 540
+    static let height: CGFloat = 440
     static let horizontalPadding: CGFloat = 28
     static let verticalPadding: CGFloat = 22
     static let rowSpacing: CGFloat = 12
     static let labelColumnWidth: CGFloat = 108
-    static let controlColumnWidth: CGFloat = 190
+    static let controlColumnWidth: CGFloat = 330
     static let thresholdFieldWidth: CGFloat = 92
     static let footerHeight: CGFloat = 52
     static let layoutUsesAlignedGrid = true
@@ -227,18 +242,7 @@ enum StatusBarState: Equatable {
     }
 
     var symbolName: String {
-        switch self {
-        case .refreshing:
-            return "arrow.triangle.2.circlepath.circle.fill"
-        case .healthy:
-            return "checkmark.circle.fill"
-        case .partial:
-            return "exclamationmark.circle.fill"
-        case .unavailable:
-            return "xmark.circle.fill"
-        case .offline:
-            return "circle.dashed"
-        }
+        "dog"
     }
 
     var colorName: String {
@@ -320,6 +324,39 @@ enum RefreshIntervalOption: String, CaseIterable, Equatable {
     }
 }
 
+enum StatusBarMetricOption: String, CaseIterable, Equatable, Hashable {
+    case balance
+    case todayCost
+    case todayRequests
+    case todayTokens
+
+    var title: String {
+        switch self {
+        case .balance:
+            return "余额"
+        case .todayCost:
+            return "今日费用"
+        case .todayRequests:
+            return "请求次数"
+        case .todayTokens:
+            return "Tokens"
+        }
+    }
+
+    var compactLabel: String {
+        switch self {
+        case .balance:
+            return "余"
+        case .todayCost:
+            return "费"
+        case .todayRequests:
+            return "请求"
+        case .todayTokens:
+            return "Tok"
+        }
+    }
+}
+
 struct AppPreferences: Equatable {
     var privacyModeEnabled: Bool
     var refreshInterval: RefreshIntervalOption
@@ -330,6 +367,7 @@ struct AppPreferences: Equatable {
     var balanceAlertThreshold: Double
     var dailyCostAlertEnabled: Bool
     var dailyCostAlertThreshold: Double
+    var statusBarMetricOptions: [StatusBarMetricOption]
 
     static let `default` = AppPreferences(
         privacyModeEnabled: false,
@@ -340,7 +378,8 @@ struct AppPreferences: Equatable {
         balanceAlertEnabled: false,
         balanceAlertThreshold: 100,
         dailyCostAlertEnabled: false,
-        dailyCostAlertThreshold: 10
+        dailyCostAlertThreshold: 10,
+        statusBarMetricOptions: [.balance, .todayCost]
     )
 }
 
@@ -355,6 +394,7 @@ struct PreferencesStore {
         static let balanceAlertThreshold = "balanceAlertThreshold"
         static let dailyCostAlertEnabled = "dailyCostAlertEnabled"
         static let dailyCostAlertThreshold = "dailyCostAlertThreshold"
+        static let statusBarMetricOptions = "statusBarMetricOptions"
     }
 
     private let defaults: UserDefaults
@@ -376,7 +416,9 @@ struct PreferencesStore {
             balanceAlertEnabled: defaults.object(forKey: Key.balanceAlertEnabled) as? Bool ?? base.balanceAlertEnabled,
             balanceAlertThreshold: defaults.object(forKey: Key.balanceAlertThreshold) as? Double ?? base.balanceAlertThreshold,
             dailyCostAlertEnabled: defaults.object(forKey: Key.dailyCostAlertEnabled) as? Bool ?? base.dailyCostAlertEnabled,
-            dailyCostAlertThreshold: defaults.object(forKey: Key.dailyCostAlertThreshold) as? Double ?? base.dailyCostAlertThreshold
+            dailyCostAlertThreshold: defaults.object(forKey: Key.dailyCostAlertThreshold) as? Double ?? base.dailyCostAlertThreshold,
+            statusBarMetricOptions: (defaults.stringArray(forKey: Key.statusBarMetricOptions) ?? base.statusBarMetricOptions.map(\.rawValue))
+                .compactMap(StatusBarMetricOption.init(rawValue:))
         )
     }
 
@@ -390,11 +432,14 @@ struct PreferencesStore {
         defaults.set(preferences.balanceAlertThreshold, forKey: Key.balanceAlertThreshold)
         defaults.set(preferences.dailyCostAlertEnabled, forKey: Key.dailyCostAlertEnabled)
         defaults.set(preferences.dailyCostAlertThreshold, forKey: Key.dailyCostAlertThreshold)
+        defaults.set(preferences.statusBarMetricOptions.map(\.rawValue), forKey: Key.statusBarMetricOptions)
     }
 }
 
 struct StatusMetricDisplay {
     let balance: Double?
+    let todayRequests: Double?
+    let todayTokens: Double?
     let todayCost: Double?
     let apiKeyCount: Double?
     let preferences: AppPreferences
@@ -407,8 +452,33 @@ struct StatusMetricDisplay {
         preferences.privacyModeEnabled ? "已隐藏" : MetricsFormatter.displayCurrency(todayCost)
     }
 
+    var todayRequestsText: String {
+        "\(MetricsFormatter.integer(todayRequests)) 次"
+    }
+
+    var tokensText: String {
+        MetricsFormatter.compactInteger(todayTokens)
+    }
+
     var apiKeyCountText: String {
         preferences.privacyModeEnabled ? "已隐藏" : apiKeyCount.map { "\(MetricsFormatter.integer($0)) 个" } ?? "—"
+    }
+
+    var statusBarTitle: String {
+        preferences.statusBarMetricOptions.map { option in
+            switch option {
+            case .balance:
+                return "\(option.compactLabel) \(preferences.privacyModeEnabled ? "已隐藏" : MetricsFormatter.compactCurrency(balance))"
+            case .todayCost:
+                return "\(option.compactLabel) \(preferences.privacyModeEnabled ? "已隐藏" : MetricsFormatter.displayCurrency(todayCost))"
+            case .todayRequests:
+                return "\(option.compactLabel) \(MetricsFormatter.integer(todayRequests))"
+            case .todayTokens:
+                return "\(option.compactLabel) \(MetricsFormatter.compactInteger(todayTokens))"
+            }
+        }
+        .filter { !$0.isEmpty }
+        .joined(separator: "  ")
     }
 }
 
