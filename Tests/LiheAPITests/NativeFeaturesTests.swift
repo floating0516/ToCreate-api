@@ -1063,4 +1063,33 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertTrue(script.contains("Resources/ToCreate.entitlements"))
         XCTAssertTrue(script.contains("codesign --verify --deep --strict \"$APP\""))
     }
+
+    func testPackageScriptCreatesPolishedDmgInstallWindow() throws {
+        let script = try String(contentsOfFile: Self.projectFile("scripts/package_app.sh"))
+
+        XCTAssertTrue(script.contains("DMG_BACKGROUND=\"$WORK/dmg-background.png\""))
+        XCTAssertTrue(script.contains("swift \"$ROOT/scripts/make_dmg_background.swift\""))
+        XCTAssertTrue(script.contains("mkdir -p \"$STAGING/.background\""))
+        XCTAssertTrue(script.contains("cp \"$DMG_BACKGROUND\" \"$STAGING/.background/background.png\""))
+        XCTAssertTrue(script.contains("osascript <<APPLESCRIPT"))
+        XCTAssertTrue(script.contains("set dmgFolder to POSIX file \"$MOUNT_POINT\" as alias"))
+        XCTAssertTrue(script.contains("set background picture of opts to file \".background:background.png\" of dmgFolder"))
+        XCTAssertTrue(script.contains("set bounds of container window of dmgFolder to {100, 100, 760, 500}"))
+        XCTAssertTrue(script.contains("set position of item \"ToCreate.app\" of dmgFolder to {170, 220}"))
+        XCTAssertTrue(script.contains("set position of item \"Applications\" of dmgFolder to {490, 220}"))
+        XCTAssertTrue(script.contains("if [[ ! -f \"$MOUNT_POINT/.DS_Store\" ]]"))
+        XCTAssertFalse(script.contains("tell disk \"ToCreate\""))
+        XCTAssertFalse(script.contains("安装提示.txt"))
+
+        let backgroundScript = try String(contentsOfFile: Self.projectFile("scripts/make_dmg_background.swift"))
+        XCTAssertTrue(backgroundScript.contains("首次打开如被 macOS 拦截"))
+        XCTAssertTrue(backgroundScript.contains("系统设置 > 隐私与安全性"))
+        XCTAssertTrue(backgroundScript.contains("let scale: CGFloat = 2"))
+        XCTAssertTrue(backgroundScript.contains("pixelsWide: Int(size.width * scale)"))
+        XCTAssertTrue(backgroundScript.contains("bitmap.size = size"))
+        XCTAssertTrue(backgroundScript.contains("arrow.lineCapStyle = .round"))
+        XCTAssertTrue(backgroundScript.contains("arrow.lineJoinStyle = .round"))
+        XCTAssertFalse(backgroundScript.contains("arrowHead.fill()"))
+        XCTAssertFalse(backgroundScript.contains("scaleBy(x: scale, y: scale)"))
+    }
 }
