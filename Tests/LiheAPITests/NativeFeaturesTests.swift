@@ -657,12 +657,24 @@ final class NativeFeaturesTests: XCTestCase {
         }
     }
 
+    func testGitHubReleaseRedirectParserFindsLatestDmgWithoutGitHubAPI() throws {
+        let update = try GitHubReleaseRedirectParser.parseLatestReleaseURL(
+            URL(string: "https://github.com/floating0516/ToCreate-api/releases/tag/v0.1.9"),
+            downloadURL: URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest/download/ToCreate.dmg")!
+        )
+
+        XCTAssertEqual(update.version, "0.1.9")
+        XCTAssertEqual(update.releasePageURL.absoluteString, "https://github.com/floating0516/ToCreate-api/releases/tag/v0.1.9")
+        XCTAssertEqual(update.downloadURL.absoluteString, "https://github.com/floating0516/ToCreate-api/releases/latest/download/ToCreate.dmg")
+        XCTAssertEqual(update.releaseNotes, "")
+    }
+
     func testUpdateCheckHandlesNonSuccessfulHTTPStatusBeforeParsingRelease() throws {
         let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
 
         XCTAssertTrue(appSource.contains("response as? HTTPURLResponse"))
-        XCTAssertTrue(appSource.contains("GitHubReleaseParser.errorMessage"))
         XCTAssertTrue(appSource.contains("GitHub 返回 \\(httpResponse.statusCode)"))
+        XCTAssertFalse(appSource.contains("GitHubReleaseParser.errorMessage"))
     }
 
     func testUpdateDownloadPlannerUsesVersionedDmgInAppCache() {
@@ -716,7 +728,9 @@ final class NativeFeaturesTests: XCTestCase {
 
         XCTAssertTrue(appSource.contains("checkForUpdatesFromMenu"))
         XCTAssertTrue(appSource.contains("showAboutWindow"))
-        XCTAssertTrue(appSource.contains("api.github.com/repos/floating0516/ToCreate-api/releases/latest"))
+        XCTAssertTrue(appSource.contains("github.com/floating0516/ToCreate-api/releases/latest"))
+        XCTAssertTrue(appSource.contains("github.com/floating0516/ToCreate-api/releases/latest/download/ToCreate.dmg"))
+        XCTAssertFalse(appSource.contains("api.github.com/repos/floating0516/ToCreate-api/releases/latest"))
         XCTAssertTrue(appSource.contains("downloadAndOpenUpdate"))
         XCTAssertTrue(appSource.contains("UpdateDownloadPlanner.destinationURL"))
         XCTAssertTrue(appSource.contains("installAndRelaunchUpdate"))

@@ -56,7 +56,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var latestTodayCost: Double?
     private var latestAPIKeyCount: Double?
     private var statusBarTitle = ""
-    private let updateFeedURL = URL(string: "https://api.github.com/repos/floating0516/ToCreate-api/releases/latest")!
+    private let updateFeedURL = URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest")!
+    private let latestDMGDownloadURL = URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest/download/ToCreate.dmg")!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -1145,7 +1146,6 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
     private func checkForUpdates(silentWhenCurrent: Bool) {
         var request = URLRequest(url: updateFeedURL)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("\(AppBranding.displayName)/\(currentAppVersion())", forHTTPHeaderField: "User-Agent")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
@@ -1165,26 +1165,19 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             if let httpResponse = response as? HTTPURLResponse,
                !(200...299).contains(httpResponse.statusCode) {
                 let statusDescription = HTTPURLResponse.localizedString(forStatusCode: httpResponse.statusCode)
-                let message = data.flatMap(GitHubReleaseParser.errorMessage) ?? statusDescription
                 DispatchQueue.main.async {
                     if !silentWhenCurrent {
-                        self.showUpdateCheckFailed("GitHub 返回 \(httpResponse.statusCode)：\(message)")
-                    }
-                }
-                return
-            }
-
-            guard let data else {
-                DispatchQueue.main.async {
-                    if !silentWhenCurrent {
-                        self.showUpdateCheckFailed("没有收到更新信息。")
+                        self.showUpdateCheckFailed("GitHub 返回 \(httpResponse.statusCode)：\(statusDescription)")
                     }
                 }
                 return
             }
 
             do {
-                let update = try GitHubReleaseParser.parseLatestRelease(data, assetName: AppBranding.dmgName)
+                let update = try GitHubReleaseRedirectParser.parseLatestReleaseURL(
+                    response?.url,
+                    downloadURL: self.latestDMGDownloadURL
+                )
                 DispatchQueue.main.async {
                     self.handleUpdateCheckResult(update, silentWhenCurrent: silentWhenCurrent)
                 }

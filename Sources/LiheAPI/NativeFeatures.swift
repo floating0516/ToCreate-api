@@ -655,6 +655,53 @@ private extension String {
     }
 }
 
+enum GitHubReleaseRedirectParser {
+    enum ParserError: Error, LocalizedError {
+        case missingReleaseURL
+        case missingVersion
+
+        var errorDescription: String? {
+            switch self {
+            case .missingReleaseURL:
+                return "GitHub 没有返回最新版本页面。"
+            case .missingVersion:
+                return "GitHub 最新版本页面里没有找到版本号。"
+            }
+        }
+    }
+
+    static func parseLatestReleaseURL(_ releaseURL: URL?, downloadURL: URL) throws -> AppUpdateInfo {
+        guard let releaseURL else {
+            throw ParserError.missingReleaseURL
+        }
+
+        let pathComponents = releaseURL.pathComponents
+        let tagName: String?
+        if let tagIndex = pathComponents.firstIndex(of: "tag"),
+           pathComponents.indices.contains(pathComponents.index(after: tagIndex)) {
+            tagName = pathComponents[pathComponents.index(after: tagIndex)]
+        } else {
+            tagName = pathComponents.last
+        }
+
+        guard let tagName,
+              tagName.hasPrefix("v") || tagName.first?.isNumber == true else {
+            throw ParserError.missingVersion
+        }
+
+        return AppUpdateInfo(
+            version: normalizedVersion(tagName),
+            downloadURL: downloadURL,
+            releasePageURL: releaseURL,
+            releaseNotes: ""
+        )
+    }
+
+    private static func normalizedVersion(_ tagName: String) -> String {
+        tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+    }
+}
+
 enum WindowLifecyclePolicy {
     static let releasesMainWindowWhenClosed = false
 }
