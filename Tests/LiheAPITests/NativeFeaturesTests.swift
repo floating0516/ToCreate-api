@@ -169,8 +169,11 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(preferences.balanceAlertThreshold, 100)
         XCTAssertFalse(preferences.dailyCostAlertEnabled)
         XCTAssertEqual(preferences.dailyCostAlertThreshold, 10)
-        XCTAssertEqual(preferences.statusBarMetricOptions, [.balance, .todayCost])
-        XCTAssertEqual(StatusBarMetricOption.allCases, [.balance, .todayCost, .todayRequests, .todayTokens])
+        XCTAssertEqual(preferences.statusBarMetricOptions, [.subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly])
+        XCTAssertEqual(
+            StatusBarMetricOption.allCases,
+            [.balance, .todayCost, .todayRequests, .todayTokens, .subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly]
+        )
     }
 
     func testRefreshIntervalOptionsExposeMenuTitlesAndSeconds() {
@@ -196,20 +199,57 @@ final class NativeFeaturesTests: XCTestCase {
         preferences.dailyCostAlertEnabled = true
         preferences.dailyCostAlertThreshold = 3.25
         preferences.statusBarMetricOptions = [.todayRequests, .todayTokens]
-
         store.save(preferences)
 
         XCTAssertEqual(store.load(), preferences)
     }
 
+    func testSubscriptionProgressLayoutAllocatesReadableStatusBarWidth() {
+        XCTAssertEqual(StatusBarProgressLayout.requiredStatusItemLength(itemCount: 0), nil)
+        XCTAssertEqual(StatusBarProgressLayout.requiredStatusItemLength(itemCount: 1), 72)
+        XCTAssertEqual(StatusBarProgressLayout.requiredStatusItemLength(itemCount: 2), 120)
+        XCTAssertEqual(StatusBarProgressLayout.requiredStatusItemLength(itemCount: 3), 168)
+        XCTAssertEqual(StatusBarProgressLayout.requiredStatusItemLength(itemCount: 5), 168)
+    }
+
+    func testMixedTitleAndProgressAllocatesExtraWidthForTitle() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/NativeFeatures.swift"))
+
+        XCTAssertTrue(appSource.contains("requiredStatusItemLength(itemCount: Int, title: String)"))
+        XCTAssertTrue(appSource.contains("titleWidth(title)"))
+        XCTAssertGreaterThan(StatusBarProgressLayout.titleWidth("余 $399.5K  费 $25.34"), 100)
+        XCTAssertEqual(StatusBarProgressLayout.titleWidth(""), 0)
+    }
+
+    func testSubscriptionProgressPresentationUsesReadableWhiteTextAboveBar() {
+        XCTAssertEqual(StatusBarProgressPresentation.textColorName, "white")
+        XCTAssertEqual(StatusBarProgressPresentation.textWeightName, "bold")
+        XCTAssertEqual(StatusBarProgressPresentation.textPosition, .aboveBar)
+        XCTAssertEqual(StatusBarProgressPresentation.labelFontSize, 10)
+        XCTAssertEqual(StatusBarProgressPresentation.percentFontSize, 10)
+        XCTAssertEqual(StatusBarProgressPresentation.viewHeight, 20)
+    }
+
     func testMetricDisplayRespectsPrivacyMode() {
+        let subscription = SubscriptionInfo(
+            name: "pro拼车",
+            provider: "OpenAI",
+            statusText: "有效",
+            expiryText: "剩余 30 天 (2026/07/25)",
+            daily: SubscriptionDashboardMetric(used: 0.01, limit: 100, resetText: "9h 31m 后重置"),
+            weekly: SubscriptionDashboardMetric(used: 0.01, limit: 700, resetText: "6d 9h 后重置"),
+            monthly: SubscriptionDashboardMetric(used: 0.01, limit: 3000, resetText: "29d 9h 后重置")
+        )
+        var publicPreferences = AppPreferences.default
+        publicPreferences.statusBarMetricOptions = [.balance, .todayCost, .subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly]
         let publicDisplay = StatusMetricDisplay(
             balance: 399_481.574,
             todayRequests: 277.2,
             todayTokens: 217_100_000,
             todayCost: 7.7457,
             apiKeyCount: 6,
-            preferences: .default
+            subscription: subscription,
+            preferences: publicPreferences
         )
 
         XCTAssertEqual(publicDisplay.balanceText, "$399,481.57")
@@ -227,6 +267,7 @@ final class NativeFeaturesTests: XCTestCase {
             todayTokens: 217_100_000,
             todayCost: 7.7457,
             apiKeyCount: 6,
+            subscription: subscription,
             preferences: privatePreferences
         )
 
@@ -234,6 +275,163 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertEqual(privateDisplay.todayCostText, "已隐藏")
         XCTAssertEqual(privateDisplay.apiKeyCountText, "已隐藏")
         XCTAssertEqual(privateDisplay.statusBarTitle, "余 已隐藏  费 已隐藏")
+
+        let noSubscriptionDisplay = StatusMetricDisplay(
+            balance: 1,
+            todayRequests: 2,
+            todayTokens: 3,
+            todayCost: 4,
+            apiKeyCount: 5,
+            subscription: nil,
+            preferences: .default
+        )
+        XCTAssertEqual(noSubscriptionDisplay.statusBarTitle, "余 $1.00  费 $4.00")
+        XCTAssertEqual(noSubscriptionDisplay.statusBarProgressItems, [])
+    }
+
+    func testStatusBarProgressUsesSeparateSelectedSubscriptionBars() {
+        let subscription = SubscriptionInfo(
+            name: "pro拼车",
+            provider: "OpenAI",
+            statusText: "有效",
+            expiryText: "剩余 30 天 (2026/07/25)",
+            daily: SubscriptionDashboardMetric(used: 72, limit: 100, resetText: "9h 31m 后重置"),
+            weekly: SubscriptionDashboardMetric(used: 120, limit: 700, resetText: "6d 9h 后重置"),
+            monthly: SubscriptionDashboardMetric(used: 200, limit: 3000, resetText: "29d 9h 后重置")
+        )
+        var preferences = AppPreferences.default
+        preferences.statusBarMetricOptions = [.subscriptionWeekly, .subscriptionDaily]
+
+        let display = StatusMetricDisplay(
+            balance: 399_481.574,
+            todayRequests: 277.2,
+            todayTokens: 217_100_000,
+            todayCost: 7.7457,
+            apiKeyCount: 6,
+            subscription: subscription,
+            preferences: preferences
+        )
+
+        XCTAssertEqual(display.statusBarProgressItems.count, 2)
+        XCTAssertEqual(display.statusBarProgressItems.map(\.label), ["周", "日"])
+        XCTAssertEqual(display.statusBarProgressItems[0].fraction, 120.0 / 700.0, accuracy: 0.0001)
+        XCTAssertEqual(display.statusBarProgressItems[1].fraction, 0.72, accuracy: 0.0001)
+        XCTAssertEqual(display.statusBarProgressItems[1].colorName, "systemOrange")
+        XCTAssertEqual(display.statusBarProgressItems[1].accessibilityLabel, "日 72%")
+
+        preferences.privacyModeEnabled = true
+        let privateDisplay = StatusMetricDisplay(
+            balance: 399_481.574,
+            todayRequests: 277.2,
+            todayTokens: 217_100_000,
+            todayCost: 7.7457,
+            apiKeyCount: 6,
+            subscription: subscription,
+            preferences: preferences
+        )
+        XCTAssertEqual(privateDisplay.statusBarProgressItems, [])
+    }
+
+    func testDefaultStatusBarUsesSubscriptionWhenAvailableAndFallsBackWhenMissing() {
+        let subscription = SubscriptionInfo(
+            name: "pro拼车",
+            provider: "OpenAI",
+            statusText: "有效",
+            expiryText: "剩余 30 天 (2026/07/25)",
+            daily: SubscriptionDashboardMetric(used: 72, limit: 100, resetText: nil),
+            weekly: SubscriptionDashboardMetric(used: 120, limit: 700, resetText: nil),
+            monthly: SubscriptionDashboardMetric(used: 200, limit: 3000, resetText: nil)
+        )
+
+        let subscribedDisplay = StatusMetricDisplay(
+            balance: 399_481.574,
+            todayRequests: 277.2,
+            todayTokens: 217_100_000,
+            todayCost: 7.7457,
+            apiKeyCount: 6,
+            subscription: subscription,
+            preferences: .default
+        )
+        XCTAssertEqual(subscribedDisplay.statusBarTitle, "")
+        XCTAssertEqual(subscribedDisplay.statusBarProgressItems.map(\.label), ["日", "周", "月"])
+
+        let fallbackDisplay = StatusMetricDisplay(
+            balance: 399_481.574,
+            todayRequests: 277.2,
+            todayTokens: 217_100_000,
+            todayCost: 7.7457,
+            apiKeyCount: 6,
+            subscription: nil,
+            preferences: .default
+        )
+        XCTAssertEqual(fallbackDisplay.statusBarTitle, "余 $399.5K  费 $7.75")
+        XCTAssertEqual(fallbackDisplay.statusBarProgressItems, [])
+    }
+
+    func testDefaultStatusBarFallbackStaysVisibleWhenMetricsAreUnavailable() {
+        let display = StatusMetricDisplay(
+            balance: nil,
+            todayRequests: nil,
+            todayTokens: nil,
+            todayCost: nil,
+            apiKeyCount: nil,
+            subscription: nil,
+            preferences: .default
+        )
+
+        XCTAssertEqual(display.statusBarTitle, "余 —  费 —")
+        XCTAssertEqual(display.statusBarProgressItems, [])
+    }
+
+    func testMetricsFailurePathsKeepStatusBarFallbackVisible() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertFalse(appSource.contains("updateStatusBarMetricsTitle(nil)"))
+        XCTAssertTrue(appSource.contains("updateStatusBarMetricsFromLatestValues()"))
+    }
+
+    func testAppAppliesDefaultStatusBarFallbackOnStartup() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+        guard let statusItemRange = appSource.range(of: "buildStatusItem()"),
+              let fallbackRange = appSource.range(of: "updateStatusBarMetricsFromLatestValues()"),
+              let windowRange = appSource.range(of: "buildWindow()") else {
+            XCTFail("Expected startup status bar calls to be present")
+            return
+        }
+
+        XCTAssertLessThan(statusItemRange.lowerBound, fallbackRange.lowerBound)
+        XCTAssertLessThan(fallbackRange.lowerBound, windowRange.lowerBound)
+    }
+
+    func testSubscriptionPayloadParserBuildsDashboardMetrics() {
+        let subscription = SubscriptionPayloadParser.subscriptionInfo([
+            "name": "pro拼车",
+            "provider": "OpenAI",
+            "status": "有效",
+            "expiryText": "剩余 30 天 (2026/07/25)",
+            "daily": ["used": 0.01, "limit": 100, "resetText": "9h 31m 后重置"],
+            "weekly": ["used": 0.01, "limit": 700, "resetText": "6d 9h 后重置"],
+            "monthly": ["used": 0.01, "limit": 3000, "resetText": "29d 9h 后重置"]
+        ])
+
+        XCTAssertEqual(subscription?.titleText, "pro拼车 · OpenAI · 有效")
+        XCTAssertEqual(subscription?.expiryText, "剩余 30 天 (2026/07/25)")
+        XCTAssertEqual(subscription?.daily.menuText, "$0.01 / $100.00 · 9h 31m 后重置")
+        XCTAssertEqual(subscription?.weekly.statusBarText, "$0.01/$700.00")
+        XCTAssertEqual(subscription?.monthly.statusBarText, "$0.01/$3.0K")
+    }
+
+    func testMetricsScriptReadsSubscriptionDashboardByNearbyLines() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("optionalApi(['/subscriptions/active'])"))
+        XCTAssertTrue(appSource.contains("function subscriptionFromAPI(value)"))
+        XCTAssertTrue(appSource.contains("subscriptionFromAPI(subscriptionPayload) || subscriptionFromDOM()"))
+        XCTAssertTrue(appSource.contains("function lineMetric(label)"))
+        XCTAssertTrue(appSource.contains("const windowLines = lines.slice(index, index + 12)"))
+        XCTAssertTrue(appSource.contains("const moneyPattern ="))
+        XCTAssertTrue(appSource.contains("lineMetric(label)"))
+        XCTAssertTrue(appSource.contains("headerLine.slice(0, providerMatch.index)"))
     }
 
     func testWidgetSnapshotCodableRoundTrip() throws {
@@ -532,8 +730,8 @@ final class NativeFeaturesTests: XCTestCase {
     }
 
     func testPreferencesWindowUsesCompactAlignedLayout() throws {
-        XCTAssertEqual(PreferencesWindowPresentation.width, 540)
-        XCTAssertEqual(PreferencesWindowPresentation.height, 440)
+        XCTAssertEqual(PreferencesWindowPresentation.width, 600)
+        XCTAssertEqual(PreferencesWindowPresentation.height, 590)
         XCTAssertEqual(PreferencesWindowPresentation.labelColumnWidth, 108)
         XCTAssertEqual(PreferencesWindowPresentation.controlColumnWidth, 330)
         XCTAssertTrue(PreferencesWindowPresentation.layoutUsesAlignedGrid)
@@ -541,7 +739,28 @@ final class NativeFeaturesTests: XCTestCase {
         let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
         XCTAssertTrue(appSource.contains("PreferencesWindowPresentation.width"))
         XCTAssertTrue(appSource.contains("makePreferenceRow"))
-        XCTAssertTrue(appSource.contains("makeStatusBarMetricOptionsRow"))
+        XCTAssertTrue(appSource.contains("makeStatusBarMetricOptionsPanel"))
+        XCTAssertTrue(appSource.contains("makeMetricIndicatorRow"))
+        XCTAssertTrue(appSource.contains("菜单栏指标"))
+        XCTAssertTrue(appSource.contains("普通指标和订阅额度可同时显示"))
+        XCTAssertTrue(appSource.contains("订阅额度"))
+        XCTAssertTrue(appSource.contains("今日额度进度"))
+        XCTAssertTrue(appSource.contains("本周额度进度"))
+        XCTAssertTrue(appSource.contains("本月额度进度"))
+        XCTAssertTrue(appSource.contains("panel.layer?.borderWidth = 0"))
+        XCTAssertTrue(appSource.contains("backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.36).cgColor"))
+        XCTAssertTrue(appSource.contains("row.widthAnchor.constraint(equalToConstant: 518).isActive = true"))
+        XCTAssertTrue(appSource.contains("preview.widthAnchor.constraint(equalToConstant: 270).isActive = true"))
+        XCTAssertTrue(appSource.contains("let pillRect = NSRect"))
+        XCTAssertTrue(appSource.contains("NSColor.separatorColor.withAlphaComponent(0.38).setFill()"))
+        XCTAssertFalse(appSource.contains("Daily quota usage"))
+        XCTAssertFalse(appSource.contains("Weekly quota usage"))
+        XCTAssertFalse(appSource.contains("Monthly quota usage"))
+        XCTAssertFalse(appSource.contains("borderColor = NSColor.separatorColor.withAlphaComponent(0.8).cgColor"))
+        XCTAssertFalse(appSource.contains("makeMetricIndicatorCard"))
+        XCTAssertTrue(appSource.contains("StatusBarProgressPreviewView"))
+        XCTAssertFalse(appSource.contains("makeIndicatorStyleGrid"))
+        XCTAssertFalse(appSource.contains("图标样式"))
         XCTAssertTrue(appSource.contains("statusBarMetricCheckboxes"))
         XCTAssertTrue(appSource.contains("buttonRow.topAnchor.constraint"))
     }
@@ -580,7 +799,10 @@ final class NativeFeaturesTests: XCTestCase {
 
         XCTAssertTrue(appSource.contains("makeLucideDogStatusImage"))
         XCTAssertTrue(appSource.contains("M11.25 16.25h1.5L12 17z"))
-        XCTAssertTrue(appSource.contains("let image = makeLucideDogStatusImage(statusColor: state.color, accessibilityLabel: state.accessibilityLabel)"))
+        XCTAssertTrue(appSource.contains("currentStatusBarState = state"))
+        XCTAssertTrue(appSource.contains("let image = makeLucideDogStatusImage(statusColor: currentStatusBarState.color, accessibilityLabel: currentStatusBarState.accessibilityLabel)"))
+        XCTAssertTrue(appSource.contains("button.image = nil"))
+        XCTAssertTrue(appSource.contains("button.imagePosition = .noImage"))
         XCTAssertTrue(appSource.contains("transformed.lineWidth = 1.45"))
         XCTAssertTrue(appSource.contains("let iconColor = NSColor.white"))
         XCTAssertTrue(appSource.contains("iconColor.withAlphaComponent(0.35).setFill()"))
@@ -593,6 +815,28 @@ final class NativeFeaturesTests: XCTestCase {
         XCTAssertFalse(appSource.contains("NSImage(systemSymbolName: state.symbolName"))
         XCTAssertFalse(appSource.contains("button.contentTintColor = state.color"))
         XCTAssertFalse(appSource.contains("makeLucideDogStatusImage(color: state.color"))
+    }
+
+    func testStatusBarButtonAddsInlineProgressView() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("StatusBarProgressView"))
+        XCTAssertTrue(appSource.contains("statusBarProgressView?.update(title: title, snapshots: statusBarProgressItems)"))
+        XCTAssertTrue(appSource.contains("barLayers"))
+        XCTAssertTrue(appSource.contains("button.addSubview(progressView)"))
+        XCTAssertTrue(appSource.contains("progressLayer.cornerRadius"))
+        XCTAssertTrue(appSource.contains("progressLayer.backgroundColor"))
+    }
+
+    func testMixedTitleAndProgressUsesUnifiedProgressViewWithoutSystemOverlay() throws {
+        let appSource = try String(contentsOfFile: Self.projectFile("Sources/LiheAPI/LiheAPIApp.swift"))
+
+        XCTAssertTrue(appSource.contains("let showsProgress = !statusBarProgressItems.isEmpty"))
+        XCTAssertTrue(appSource.contains("string: showsProgress || title.isEmpty ? \"\" : \" \\(title)\""))
+        XCTAssertTrue(appSource.contains("titleLayer.string = title"))
+        XCTAssertTrue(appSource.contains("button.image = nil"))
+        XCTAssertTrue(appSource.contains("button.imagePosition = .noImage"))
+        XCTAssertFalse(appSource.contains("let showsProgressOnly = title.isEmpty && !statusBarProgressItems.isEmpty"))
     }
 
     func testLaunchAtLoginUsesNativeServiceManagementAndPreferencesUI() throws {

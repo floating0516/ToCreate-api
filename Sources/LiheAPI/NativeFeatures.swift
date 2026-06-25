@@ -212,16 +212,61 @@ enum StatusMenuPresentation {
 }
 
 enum PreferencesWindowPresentation {
-    static let width: CGFloat = 540
-    static let height: CGFloat = 440
-    static let horizontalPadding: CGFloat = 28
+    static let width: CGFloat = 600
+    static let height: CGFloat = 590
+    static let horizontalPadding: CGFloat = 26
     static let verticalPadding: CGFloat = 22
-    static let rowSpacing: CGFloat = 12
+    static let rowSpacing: CGFloat = 11
     static let labelColumnWidth: CGFloat = 108
     static let controlColumnWidth: CGFloat = 330
     static let thresholdFieldWidth: CGFloat = 92
     static let footerHeight: CGFloat = 52
     static let layoutUsesAlignedGrid = true
+}
+
+enum StatusBarProgressLayout {
+    static let maximumVisibleItems = 3
+
+    static func titleWidth(_ title: String) -> CGFloat {
+        guard !title.isEmpty else {
+            return 0
+        }
+
+        return min(max(CGFloat(title.count) * 8, 112), 160)
+    }
+
+    static func requiredStatusItemLength(itemCount: Int) -> CGFloat? {
+        guard itemCount > 0 else {
+            return nil
+        }
+
+        return CGFloat(min(itemCount, maximumVisibleItems)) * 48 + 24
+    }
+
+    static func requiredStatusItemLength(itemCount: Int, title: String) -> CGFloat? {
+        guard let progressLength = requiredStatusItemLength(itemCount: itemCount) else {
+            return nil
+        }
+
+        return progressLength + titleWidth(title)
+    }
+}
+
+enum StatusBarProgressPresentation {
+    enum TextPosition: Equatable {
+        case aboveBar
+        case belowBar
+    }
+
+    static let previewTitle = "日"
+    static let previewPercent = "62%"
+    static let previewFraction = 0.62
+    static let textColorName = "white"
+    static let textWeightName = "bold"
+    static let textPosition = TextPosition.aboveBar
+    static let labelFontSize: CGFloat = 10
+    static let percentFontSize: CGFloat = 10
+    static let viewHeight: CGFloat = 20
 }
 
 enum StatusBarState: Equatable {
@@ -329,6 +374,9 @@ enum StatusBarMetricOption: String, CaseIterable, Equatable, Hashable {
     case todayCost
     case todayRequests
     case todayTokens
+    case subscriptionDaily
+    case subscriptionWeekly
+    case subscriptionMonthly
 
     var title: String {
         switch self {
@@ -340,6 +388,12 @@ enum StatusBarMetricOption: String, CaseIterable, Equatable, Hashable {
             return "请求次数"
         case .todayTokens:
             return "Tokens"
+        case .subscriptionDaily:
+            return "订阅：每日"
+        case .subscriptionWeekly:
+            return "订阅：每周"
+        case .subscriptionMonthly:
+            return "订阅：每月"
         }
     }
 
@@ -353,6 +407,101 @@ enum StatusBarMetricOption: String, CaseIterable, Equatable, Hashable {
             return "请求"
         case .todayTokens:
             return "Tok"
+        case .subscriptionDaily:
+            return "日"
+        case .subscriptionWeekly:
+            return "周"
+        case .subscriptionMonthly:
+            return "月"
+        }
+    }
+}
+
+struct SubscriptionDashboardMetric: Equatable {
+    let used: Double?
+    let limit: Double?
+    let resetText: String?
+
+    var menuText: String {
+        let value = "\(MetricsFormatter.displayCurrency(used)) / \(MetricsFormatter.displayCurrency(limit))"
+        guard let resetText, !resetText.isEmpty else {
+            return value
+        }
+        return "\(value) · \(resetText)"
+    }
+
+    var statusBarText: String {
+        "\(MetricsFormatter.displayCurrency(used))/\(MetricsFormatter.compactCurrency(limit))"
+    }
+
+    var usageFraction: Double? {
+        guard let used, let limit, limit > 0 else {
+            return nil
+        }
+        return min(max(used / limit, 0), 1)
+    }
+}
+
+struct StatusBarProgressSnapshot: Equatable {
+    let label: String
+    let fraction: Double
+
+    var colorName: String {
+        if fraction >= 0.9 {
+            return "systemRed"
+        }
+        if fraction >= 0.7 {
+            return "systemOrange"
+        }
+        return "systemGreen"
+    }
+
+    var color: NSColor {
+        switch colorName {
+        case "systemRed":
+            return .systemRed
+        case "systemOrange":
+            return .systemOrange
+        default:
+            return .systemGreen
+        }
+    }
+
+    var accessibilityLabel: String {
+        "\(label) \(Int((fraction * 100).rounded()))%"
+    }
+}
+
+struct SubscriptionInfo: Equatable {
+    let name: String?
+    let provider: String?
+    let statusText: String?
+    let expiryText: String?
+    let daily: SubscriptionDashboardMetric
+    let weekly: SubscriptionDashboardMetric
+    let monthly: SubscriptionDashboardMetric
+
+    var titleText: String {
+        [name, provider, statusText]
+            .compactMap { value in
+                guard let value, !value.isEmpty else {
+                    return nil
+                }
+                return value
+            }
+            .joined(separator: " · ")
+    }
+
+    func metric(for option: StatusBarMetricOption) -> SubscriptionDashboardMetric? {
+        switch option {
+        case .subscriptionDaily:
+            return daily
+        case .subscriptionWeekly:
+            return weekly
+        case .subscriptionMonthly:
+            return monthly
+        default:
+            return nil
         }
     }
 }
@@ -379,7 +528,7 @@ struct AppPreferences: Equatable {
         balanceAlertThreshold: 100,
         dailyCostAlertEnabled: false,
         dailyCostAlertThreshold: 10,
-        statusBarMetricOptions: [.balance, .todayCost]
+        statusBarMetricOptions: [.subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly]
     )
 }
 
@@ -442,6 +591,7 @@ struct StatusMetricDisplay {
     let todayTokens: Double?
     let todayCost: Double?
     let apiKeyCount: Double?
+    var subscription: SubscriptionInfo? = nil
     let preferences: AppPreferences
 
     var balanceText: String {
@@ -464,8 +614,44 @@ struct StatusMetricDisplay {
         preferences.privacyModeEnabled ? "已隐藏" : apiKeyCount.map { "\(MetricsFormatter.integer($0)) 个" } ?? "—"
     }
 
+    private var statusBarMetricOptionsForTitle: [StatusBarMetricOption] {
+        let selected = preferences.statusBarMetricOptions
+        let containsOnlySubscriptionOptions = selected.allSatisfy { option in
+            switch option {
+            case .subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly:
+                return true
+            default:
+                return false
+            }
+        }
+
+        if (subscription == nil || preferences.privacyModeEnabled) && containsOnlySubscriptionOptions {
+            return [.balance, .todayCost]
+        }
+
+        return selected
+    }
+
+    var statusBarProgressItems: [StatusBarProgressSnapshot] {
+        guard !preferences.privacyModeEnabled, let subscription else {
+            return []
+        }
+
+        return preferences.statusBarMetricOptions.compactMap { option -> StatusBarProgressSnapshot? in
+            switch option {
+            case .subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly:
+                guard let fraction = subscription.metric(for: option)?.usageFraction else {
+                    return nil
+                }
+                return StatusBarProgressSnapshot(label: option.compactLabel, fraction: fraction)
+            default:
+                return nil
+            }
+        }
+    }
+
     var statusBarTitle: String {
-        preferences.statusBarMetricOptions.map { option in
+        statusBarMetricOptionsForTitle.map { option in
             switch option {
             case .balance:
                 return "\(option.compactLabel) \(preferences.privacyModeEnabled ? "已隐藏" : MetricsFormatter.compactCurrency(balance))"
@@ -475,10 +661,60 @@ struct StatusMetricDisplay {
                 return "\(option.compactLabel) \(MetricsFormatter.integer(todayRequests))"
             case .todayTokens:
                 return "\(option.compactLabel) \(MetricsFormatter.compactInteger(todayTokens))"
+            case .subscriptionDaily, .subscriptionWeekly, .subscriptionMonthly:
+                return ""
             }
         }
         .filter { !$0.isEmpty }
         .joined(separator: "  ")
+    }
+}
+
+enum SubscriptionPayloadParser {
+    static func subscriptionInfo(_ value: Any?) -> SubscriptionInfo? {
+        guard let object = value as? [String: Any] else {
+            return nil
+        }
+
+        let daily = dashboardMetric(object["daily"])
+        let weekly = dashboardMetric(object["weekly"])
+        let monthly = dashboardMetric(object["monthly"])
+        guard daily.used != nil || daily.limit != nil || weekly.used != nil || weekly.limit != nil || monthly.used != nil || monthly.limit != nil else {
+            return nil
+        }
+
+        return SubscriptionInfo(
+            name: stringValue(object["name"]),
+            provider: stringValue(object["provider"]),
+            statusText: stringValue(object["status"] ?? object["statusText"]),
+            expiryText: stringValue(object["expiryText"] ?? object["expiresText"] ?? object["expiresAt"]),
+            daily: daily,
+            weekly: weekly,
+            monthly: monthly
+        )
+    }
+
+    private static func dashboardMetric(_ value: Any?) -> SubscriptionDashboardMetric {
+        let object = value as? [String: Any] ?? [:]
+        return SubscriptionDashboardMetric(
+            used: MetricPayloadParser.doubleValue(object["used"] ?? object["current"]),
+            limit: MetricPayloadParser.doubleValue(object["limit"] ?? object["quota"]),
+            resetText: stringValue(object["resetText"] ?? object["reset"])
+        )
+    }
+
+    private static func stringValue(_ value: Any?) -> String? {
+        guard let value else {
+            return nil
+        }
+        let string: String
+        if let text = value as? String {
+            string = text
+        } else {
+            string = String(describing: value)
+        }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

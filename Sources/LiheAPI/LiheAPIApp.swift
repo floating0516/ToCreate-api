@@ -4,6 +4,221 @@ import UserNotifications
 import WebKit
 import WidgetKit
 
+final class StatusBarProgressView: NSView {
+    private struct BarLayer {
+        let labelLayer: CATextLayer
+        let percentLayer: CATextLayer
+        let trackLayer: CALayer
+        let progressLayer: CALayer
+    }
+
+    private let titleLayer = CATextLayer()
+    private var barLayers: [BarLayer] = []
+    private var snapshots: [StatusBarProgressSnapshot] = []
+    private var title = ""
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configure()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configure()
+    }
+
+    private func configure() {
+        wantsLayer = true
+        isHidden = true
+        layer?.masksToBounds = false
+        titleLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        titleLayer.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold)
+        titleLayer.fontSize = 10
+        titleLayer.alignmentMode = .left
+        titleLayer.foregroundColor = NSColor.white.cgColor
+        layer?.addSublayer(titleLayer)
+    }
+
+    override func layout() {
+        super.layout()
+        guard !snapshots.isEmpty else {
+            return
+        }
+
+        let titleWidth = StatusBarProgressLayout.titleWidth(title)
+        titleLayer.frame = NSRect(x: bounds.minX, y: bounds.minY + 4, width: titleWidth, height: 12)
+        let gap: CGFloat = 6
+        let visibleCount = CGFloat(min(snapshots.count, StatusBarProgressLayout.maximumVisibleItems))
+        let progressOriginX = bounds.minX + titleWidth + (titleWidth > 0 ? gap : 0)
+        let progressWidth = max(42, bounds.width - titleWidth - (titleWidth > 0 ? gap : 0))
+        let segmentWidth = max(42, (progressWidth - gap * CGFloat(max(0, snapshots.count - 1))) / visibleCount)
+        for (index, snapshot) in snapshots.enumerated() {
+            guard index < barLayers.count else {
+                continue
+            }
+
+            let originX = progressOriginX + CGFloat(index) * (segmentWidth + gap)
+            let textHeight: CGFloat = 12
+            let textY = bounds.maxY - textHeight
+            let labelFrame = NSRect(x: originX, y: textY, width: 12, height: textHeight)
+            let percentFrame = NSRect(x: originX + 14, y: textY, width: max(24, segmentWidth - 14), height: textHeight)
+            let trackFrame = NSRect(
+                x: originX,
+                y: bounds.minY + 1,
+                width: max(24, segmentWidth),
+                height: 4
+            )
+            let bar = barLayers[index]
+            bar.labelLayer.frame = labelFrame
+            bar.percentLayer.frame = percentFrame
+            bar.trackLayer.frame = trackFrame
+            bar.progressLayer.frame = NSRect(
+                x: trackFrame.minX,
+                y: trackFrame.minY,
+                width: trackFrame.width * CGFloat(snapshot.fraction),
+                height: trackFrame.height
+            )
+            bar.trackLayer.cornerRadius = 2
+            bar.progressLayer.cornerRadius = 2
+        }
+    }
+
+    func update(title: String, snapshots: [StatusBarProgressSnapshot]) {
+        guard !snapshots.isEmpty else {
+            isHidden = true
+            toolTip = nil
+            self.title = ""
+            titleLayer.string = ""
+            self.snapshots = []
+            barLayers.forEach { bar in
+                bar.labelLayer.removeFromSuperlayer()
+                bar.percentLayer.removeFromSuperlayer()
+                bar.trackLayer.removeFromSuperlayer()
+                bar.progressLayer.removeFromSuperlayer()
+            }
+            barLayers.removeAll()
+            return
+        }
+
+        isHidden = false
+        self.title = title
+        self.snapshots = Array(snapshots.prefix(3))
+        titleLayer.string = title
+        toolTip = ([title].filter { !$0.isEmpty } + self.snapshots.map(\.accessibilityLabel)).joined(separator: " · ")
+        rebuildLayersIfNeeded()
+        for (index, snapshot) in self.snapshots.enumerated() {
+            guard index < barLayers.count else {
+                continue
+            }
+            let bar = barLayers[index]
+            bar.progressLayer.backgroundColor = snapshot.color.cgColor
+        }
+        refreshLayerText()
+        needsLayout = true
+    }
+
+    private func refreshLayerText() {
+        for (index, snapshot) in snapshots.enumerated() {
+            guard index < barLayers.count else {
+                continue
+            }
+            barLayers[index].labelLayer.string = snapshot.label
+            barLayers[index].percentLayer.string = "\(Int((snapshot.fraction * 100).rounded()))%"
+        }
+    }
+
+    private func rebuildLayersIfNeeded() {
+        guard barLayers.count != snapshots.count else {
+            return
+        }
+
+        barLayers.forEach { bar in
+            bar.labelLayer.removeFromSuperlayer()
+            bar.percentLayer.removeFromSuperlayer()
+            bar.trackLayer.removeFromSuperlayer()
+            bar.progressLayer.removeFromSuperlayer()
+        }
+        barLayers = snapshots.map { _ in
+            let labelLayer = CATextLayer()
+            labelLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+            labelLayer.font = NSFont.boldSystemFont(ofSize: StatusBarProgressPresentation.labelFontSize)
+            labelLayer.fontSize = StatusBarProgressPresentation.labelFontSize
+            labelLayer.alignmentMode = .center
+            labelLayer.foregroundColor = NSColor.white.cgColor
+
+            let percentLayer = CATextLayer()
+            percentLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+            percentLayer.font = NSFont.monospacedDigitSystemFont(ofSize: StatusBarProgressPresentation.percentFontSize, weight: .bold)
+            percentLayer.fontSize = StatusBarProgressPresentation.percentFontSize
+            percentLayer.alignmentMode = .right
+            percentLayer.foregroundColor = NSColor.white.cgColor
+
+            let trackLayer = CALayer()
+            trackLayer.backgroundColor = NSColor.white.withAlphaComponent(0.28).cgColor
+            trackLayer.cornerRadius = 2
+
+            let progressLayer = CALayer()
+            progressLayer.cornerRadius = 2
+            progressLayer.backgroundColor = NSColor.systemGreen.cgColor
+
+            layer?.addSublayer(labelLayer)
+            layer?.addSublayer(percentLayer)
+            layer?.addSublayer(trackLayer)
+            layer?.addSublayer(progressLayer)
+            return BarLayer(labelLayer: labelLayer, percentLayer: percentLayer, trackLayer: trackLayer, progressLayer: progressLayer)
+        }
+    }
+}
+
+final class StatusBarProgressPreviewView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        let pillRect = NSRect(x: 0, y: bounds.midY - 8, width: 54, height: 16)
+        NSColor.systemGreen.setFill()
+        NSBezierPath(roundedRect: pillRect, xRadius: 8, yRadius: 8).fill()
+        let label = StatusBarProgressPresentation.previewTitle as NSString
+        label.draw(
+            in: NSRect(x: 8, y: pillRect.minY + 2, width: 12, height: 12),
+            withAttributes: [
+                .font: NSFont.systemFont(ofSize: StatusBarProgressPresentation.labelFontSize, weight: .bold),
+                .foregroundColor: NSColor.white
+            ]
+        )
+        let percent = StatusBarProgressPresentation.previewPercent as NSString
+        percent.draw(
+            in: NSRect(x: 22, y: pillRect.minY + 2, width: 28, height: 12),
+            withAttributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: StatusBarProgressPresentation.percentFontSize, weight: .bold),
+                .foregroundColor: NSColor.white
+            ]
+        )
+        let trackRect = NSRect(x: pillRect.maxX + 8, y: bounds.midY - 2, width: max(24, bounds.width - pillRect.maxX - 8), height: 4)
+        NSColor.separatorColor.withAlphaComponent(0.38).setFill()
+        NSBezierPath(roundedRect: trackRect, xRadius: 2, yRadius: 2).fill()
+        NSColor.systemGreen.setFill()
+        NSBezierPath(
+            roundedRect: NSRect(
+                x: trackRect.minX,
+                y: trackRect.minY,
+                width: trackRect.width * CGFloat(StatusBarProgressPresentation.previewFraction),
+                height: 4
+            ),
+            xRadius: 2,
+            yRadius: 2
+        ).fill()
+    }
+}
+
 @main
 final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, @preconcurrency UNUserNotificationCenterDelegate {
     private static let delegate = LiheAPIApp()
@@ -23,12 +238,20 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var forwardButton: NSButton!
     private var reloadButton: NSButton!
     private var statusItem: NSStatusItem!
+    private var statusBarProgressView: StatusBarProgressView?
     private var serviceStatusMenuItem: NSMenuItem!
     private var balanceMenuItem: NSMenuItem!
     private var requestsMenuItem: NSMenuItem!
     private var costMenuItem: NSMenuItem!
     private var tokensMenuItem: NSMenuItem!
     private var apiKeysMenuItem: NSMenuItem!
+    private var subscriptionSectionMenuItem: NSMenuItem!
+    private var subscriptionTitleMenuItem: NSMenuItem!
+    private var subscriptionExpiryMenuItem: NSMenuItem!
+    private var subscriptionDailyMenuItem: NSMenuItem!
+    private var subscriptionWeeklyMenuItem: NSMenuItem!
+    private var subscriptionMonthlyMenuItem: NSMenuItem!
+    private var subscriptionSeparatorMenuItem: NSMenuItem!
     private var updatedAtMenuItem: NSMenuItem!
     private let preferencesStore = PreferencesStore()
     private let widgetSnapshotStore = WidgetSnapshotStore()
@@ -55,7 +278,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     private var latestTodayTokens: Double?
     private var latestTodayCost: Double?
     private var latestAPIKeyCount: Double?
+    private var latestSubscription: SubscriptionInfo?
     private var statusBarTitle = ""
+    private var statusBarProgressItems: [StatusBarProgressSnapshot] = []
+    private var currentStatusBarState: StatusBarState = .offline
     private let updateFeedURL = URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest")!
     private let latestDMGDownloadURL = URL(string: "https://github.com/floating0516/ToCreate-api/releases/latest/download/ToCreate.dmg")!
 
@@ -63,6 +289,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         NSApp.setActivationPolicy(.regular)
         buildMenu()
         buildStatusItem()
+        updateStatusBarMetricsFromLatestValues()
         configureApplicationIcon()
         configureNotifications()
         buildWindow()
@@ -214,6 +441,14 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         costMenuItem = informationalMenuItem(metricTitle("费用", "加载中…"), color: StatusMenuPresentation.costTextColor)
         tokensMenuItem = informationalMenuItem(metricTitle("Tokens", "加载中…"), color: StatusMenuPresentation.tokensTextColor)
         apiKeysMenuItem = informationalMenuItem(metricTitle("API 密钥", "加载中…"), color: StatusMenuPresentation.apiKeysTextColor)
+        subscriptionSectionMenuItem = sectionHeaderMenuItem("订阅")
+        subscriptionTitleMenuItem = informationalMenuItem(metricTitle("套餐", "—"), color: StatusMenuPresentation.primaryTextColor)
+        subscriptionExpiryMenuItem = informationalMenuItem(metricTitle("到期", "—"), color: StatusMenuPresentation.updatedAtTextColor)
+        subscriptionDailyMenuItem = informationalMenuItem(metricTitle("每日", "—"), color: StatusMenuPresentation.primaryTextColor)
+        subscriptionWeeklyMenuItem = informationalMenuItem(metricTitle("每周", "—"), color: StatusMenuPresentation.primaryTextColor)
+        subscriptionMonthlyMenuItem = informationalMenuItem(metricTitle("每月", "—"), color: StatusMenuPresentation.primaryTextColor)
+        subscriptionSeparatorMenuItem = .separator()
+        setSubscriptionMenuVisible(false)
         updatedAtMenuItem = informationalMenuItem(metricTitle("更新于", "—"), color: StatusMenuPresentation.updatedAtTextColor)
 
         menu.addItem(headerMenuItem(AppBranding.displayName))
@@ -228,6 +463,13 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         menu.addItem(balanceMenuItem)
         menu.addItem(apiKeysMenuItem)
         menu.addItem(.separator())
+        menu.addItem(subscriptionSectionMenuItem)
+        menu.addItem(subscriptionTitleMenuItem)
+        menu.addItem(subscriptionExpiryMenuItem)
+        menu.addItem(subscriptionDailyMenuItem)
+        menu.addItem(subscriptionWeeklyMenuItem)
+        menu.addItem(subscriptionMonthlyMenuItem)
+        menu.addItem(subscriptionSeparatorMenuItem)
         menu.addItem(updatedAtMenuItem)
         menu.addItem(makeRefreshMetricsMenuItem())
         menu.addItem(.separator())
@@ -359,13 +601,11 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
     }
 
     private func updateStatusBarIcon(_ state: StatusBarState) {
+        currentStatusBarState = state
         guard let button = statusItem?.button else {
             return
         }
 
-        let image = makeLucideDogStatusImage(statusColor: state.color, accessibilityLabel: state.accessibilityLabel)
-        image?.isTemplate = false
-        button.image = image
         button.toolTip = state.accessibilityLabel
         applyStatusItemTitle()
     }
@@ -376,21 +616,55 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         }
 
         let title = statusBarTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        statusItem.length = title.isEmpty ? NSStatusItem.squareLength : NSStatusItem.variableLength
-        button.imagePosition = title.isEmpty ? .imageOnly : .imageLeft
+        let showsProgress = !statusBarProgressItems.isEmpty
+        if showsProgress, let progressLength = StatusBarProgressLayout.requiredStatusItemLength(itemCount: statusBarProgressItems.count, title: title) {
+            statusItem.length = progressLength
+        } else {
+            statusItem.length = title.isEmpty ? NSStatusItem.squareLength : NSStatusItem.variableLength
+        }
+        if showsProgress {
+            button.image = nil
+            button.imagePosition = .noImage
+        } else {
+            let image = makeLucideDogStatusImage(statusColor: currentStatusBarState.color, accessibilityLabel: currentStatusBarState.accessibilityLabel)
+            image?.isTemplate = false
+            button.image = image
+            button.imagePosition = title.isEmpty ? .imageOnly : .imageLeft
+        }
         button.contentTintColor = nil
         button.attributedTitle = NSAttributedString(
-            string: title.isEmpty ? "" : " \(title)",
+            string: showsProgress || title.isEmpty ? "" : " \(title)",
             attributes: [
                 .foregroundColor: NSColor.labelColor,
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
             ]
         )
+        ensureStatusBarProgressView(on: button)
+        statusBarProgressView?.update(title: title, snapshots: statusBarProgressItems)
     }
 
     private func updateStatusBarMetricsTitle(_ display: StatusMetricDisplay?) {
         statusBarTitle = display?.statusBarTitle ?? ""
+        statusBarProgressItems = display?.statusBarProgressItems ?? []
         applyStatusItemTitle()
+    }
+
+    private func ensureStatusBarProgressView(on button: NSStatusBarButton) {
+        if let statusBarProgressView, statusBarProgressView.superview === button {
+            return
+        }
+
+        statusBarProgressView?.removeFromSuperview()
+        let progressView = StatusBarProgressView()
+        progressView.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(progressView)
+        NSLayoutConstraint.activate([
+            progressView.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 7),
+            progressView.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -7),
+            progressView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            progressView.heightAnchor.constraint(equalToConstant: StatusBarProgressPresentation.viewHeight)
+        ])
+        statusBarProgressView = progressView
     }
 
     private func updateStatusBarMetricsFromLatestValues() {
@@ -400,6 +674,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             todayTokens: latestTodayTokens,
             todayCost: latestTodayCost,
             apiKeyCount: latestAPIKeyCount,
+            subscription: latestSubscription,
             preferences: preferences
         )
         updateStatusBarMetricsTitle(display)
@@ -523,6 +798,54 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
 
     private func setAPIKeysMenuTitle(_ title: String) {
         setInformationalMenuItem(apiKeysMenuItem, title: title, color: StatusMenuPresentation.apiKeysTextColor)
+    }
+
+    private func setSubscriptionMenuVisible(_ isVisible: Bool) {
+        [
+            subscriptionSectionMenuItem,
+            subscriptionTitleMenuItem,
+            subscriptionExpiryMenuItem,
+            subscriptionDailyMenuItem,
+            subscriptionWeeklyMenuItem,
+            subscriptionMonthlyMenuItem,
+            subscriptionSeparatorMenuItem
+        ].forEach { item in
+            item?.isHidden = !isVisible
+        }
+    }
+
+    private func updateSubscriptionMenu(_ subscription: SubscriptionInfo?) {
+        guard let subscription else {
+            setSubscriptionMenuVisible(false)
+            return
+        }
+
+        setSubscriptionMenuVisible(true)
+        setInformationalMenuItem(
+            subscriptionTitleMenuItem,
+            title: metricTitle("套餐", subscription.titleText.isEmpty ? "—" : subscription.titleText),
+            color: StatusMenuPresentation.primaryTextColor
+        )
+        setInformationalMenuItem(
+            subscriptionExpiryMenuItem,
+            title: metricTitle("到期", subscription.expiryText ?? "—"),
+            color: StatusMenuPresentation.updatedAtTextColor
+        )
+        setInformationalMenuItem(
+            subscriptionDailyMenuItem,
+            title: metricTitle("每日", subscription.daily.menuText),
+            color: StatusMenuPresentation.primaryTextColor
+        )
+        setInformationalMenuItem(
+            subscriptionWeeklyMenuItem,
+            title: metricTitle("每周", subscription.weekly.menuText),
+            color: StatusMenuPresentation.primaryTextColor
+        )
+        setInformationalMenuItem(
+            subscriptionMonthlyMenuItem,
+            title: metricTitle("每月", subscription.monthly.menuText),
+            color: StatusMenuPresentation.primaryTextColor
+        )
     }
 
     private func setUpdatedAtMenuTitle(_ title: String) {
@@ -759,6 +1082,9 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
                 self.setCostMenuTitle(self.metricTitle("费用", "读取失败"))
                 self.setTokensMenuTitle(self.metricTitle("Tokens", "读取失败"))
                 self.setAPIKeysMenuTitle(self.metricTitle("API 密钥", "读取失败"))
+                self.latestSubscription = nil
+                self.updateSubscriptionMenu(nil)
+                self.updateStatusBarMetricsFromLatestValues()
                 self.setUpdatedAtMenuTitle("错误：\(error.localizedDescription)")
             }
         }
@@ -782,6 +1108,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             setCostMenuTitle(metricTitle("费用", "无法解析"))
             setTokensMenuTitle(metricTitle("Tokens", "无法解析"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "无法解析"))
+            latestSubscription = nil
+            updateSubscriptionMenu(nil)
             setUpdatedAtMenuTitle(metricTitle("更新于", "—"))
             return
         }
@@ -826,8 +1154,10 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             setCostMenuTitle(metricTitle("费用", "无法解析"))
             setTokensMenuTitle(metricTitle("Tokens", "无法解析"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "无法解析"))
+            latestSubscription = nil
+            updateSubscriptionMenu(nil)
             setUpdatedAtMenuTitle(metricTitle("更新于", "—"))
-            updateStatusBarMetricsTitle(nil)
+            updateStatusBarMetricsFromLatestValues()
             return
         }
 
@@ -838,6 +1168,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             setCostMenuTitle(metricTitle("费用", "—"))
             setTokensMenuTitle(metricTitle("Tokens", "—"))
             setAPIKeysMenuTitle(metricTitle("API 密钥", "—"))
+            latestSubscription = nil
+            updateSubscriptionMenu(nil)
             setUpdatedAtMenuTitle("提示：\(errorMessage)")
             writeWidgetSnapshot(
                 apiStatus: .unreachable,
@@ -848,7 +1180,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
                 apiKeyCount: nil,
                 updatedAt: Date()
             )
-            updateStatusBarMetricsTitle(nil)
+            updateStatusBarMetricsFromLatestValues()
             return
         }
 
@@ -859,6 +1191,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         let channel = object["channels"] as? [String: Any]
         let abnormal = channel?["abnormal"] as? Int ?? 0
         let apiKeyCount = MetricPayloadParser.doubleValue(object["apiKeyCount"])
+        let subscription = SubscriptionPayloadParser.subscriptionInfo(object["subscription"])
         let displayBalance = MetricValueCache.replacingMissing(current: balance, cached: lastSuccessfulBalance)
         if let balance {
             lastSuccessfulBalance = balance
@@ -868,12 +1201,14 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         latestTodayTokens = todayTokens
         latestTodayCost = todayCost
         latestAPIKeyCount = apiKeyCount
+        latestSubscription = subscription
         let metricDisplay = StatusMetricDisplay(
             balance: displayBalance,
             todayRequests: todayRequests,
             todayTokens: todayTokens,
             todayCost: todayCost,
             apiKeyCount: apiKeyCount,
+            subscription: subscription,
             preferences: preferences
         )
 
@@ -896,6 +1231,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         setCostMenuTitle(metricTitle("费用", metricDisplay.todayCostText))
         setBalanceMenuTitle(metricTitle("余额", metricDisplay.balanceText))
         setAPIKeysMenuTitle(metricTitle("API 密钥", metricDisplay.apiKeyCountText))
+        updateSubscriptionMenu(subscription)
         setUpdatedAtMenuTitle(metricTitle("更新于", DateFormatter.localizedString(from: updatedAt, dateStyle: .none, timeStyle: .medium)))
         scheduleBalanceRetryIfNeeded(balance: balance)
         evaluateAlerts(balance: balance, todayCost: todayCost, abnormalChannels: abnormal)
@@ -941,7 +1277,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         popup.widthAnchor.constraint(equalToConstant: 142).isActive = true
         contentStack.addArrangedSubview(makePreferenceRow(label: "自动刷新", control: popup))
 
-        contentStack.addArrangedSubview(makeStatusBarMetricOptionsRow())
+        contentStack.addArrangedSubview(makeStatusBarMetricOptionsPanel())
 
         let launchAtLogin = NSButton(checkboxWithTitle: "登录后自动启动", target: nil, action: nil)
         launchAtLoginCheckbox = launchAtLogin
@@ -1026,29 +1362,125 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         return row
     }
 
-    private func makeStatusBarMetricOptionsRow() -> NSStackView {
+    private func makeStatusBarMetricOptionsPanel() -> NSView {
         statusBarMetricCheckboxes.removeAll()
 
-        let grid = NSGridView()
-        grid.rowSpacing = 6
-        grid.columnSpacing = 12
+        let panel = NSStackView()
+        panel.orientation = .vertical
+        panel.alignment = .leading
+        panel.spacing = 9
+        panel.edgeInsets = NSEdgeInsets(top: 13, left: 15, bottom: 13, right: 15)
+        panel.wantsLayer = true
+        panel.layer?.cornerRadius = 8
+        panel.layer?.borderWidth = 0
+        panel.layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.36).cgColor
+        panel.widthAnchor.constraint(equalToConstant: 548).isActive = true
 
-        let rows = [
-            [StatusBarMetricOption.balance, .todayCost],
-            [StatusBarMetricOption.todayRequests, .todayTokens]
-        ]
+        let header = NSStackView()
+        header.orientation = .horizontal
+        header.alignment = .centerY
+        header.spacing = 12
 
-        rows.forEach { rowOptions in
-            let controls = rowOptions.map { option in
-                let checkbox = NSButton(checkboxWithTitle: option.title, target: nil, action: nil)
-                checkbox.identifier = NSUserInterfaceItemIdentifier(option.rawValue)
-                statusBarMetricCheckboxes[option] = checkbox
-                return checkbox
-            }
-            grid.addRow(with: controls)
+        let headerText = NSStackView()
+        headerText.orientation = .vertical
+        headerText.alignment = .leading
+        headerText.spacing = 2
+        let headerTitle = NSTextField(labelWithString: "菜单栏指标")
+        headerTitle.font = .boldSystemFont(ofSize: 14)
+        headerTitle.textColor = .labelColor
+        let headerSubtitle = NSTextField(labelWithString: "普通指标和订阅额度可同时显示")
+        headerSubtitle.font = .systemFont(ofSize: 12)
+        headerSubtitle.textColor = .secondaryLabelColor
+        headerText.addArrangedSubview(headerTitle)
+        headerText.addArrangedSubview(headerSubtitle)
+        header.addArrangedSubview(headerText)
+        let headerSpacer = NSView()
+        headerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        header.addArrangedSubview(headerSpacer)
+        panel.addArrangedSubview(header)
+
+        let regularMetrics = NSStackView()
+        regularMetrics.orientation = .horizontal
+        regularMetrics.alignment = .centerY
+        regularMetrics.spacing = 12
+        [StatusBarMetricOption.balance, .todayCost, .todayRequests, .todayTokens].forEach { option in
+            let checkbox = NSButton(checkboxWithTitle: option.title, target: nil, action: nil)
+            checkbox.identifier = NSUserInterfaceItemIdentifier(option.rawValue)
+            statusBarMetricCheckboxes[option] = checkbox
+            regularMetrics.addArrangedSubview(checkbox)
         }
+        panel.addArrangedSubview(regularMetrics)
 
-        return makePreferenceRow(label: "状态栏显示", control: grid)
+        let subscriptionLabel = NSTextField(labelWithString: "订阅额度")
+        subscriptionLabel.font = .boldSystemFont(ofSize: 12)
+        subscriptionLabel.textColor = .secondaryLabelColor
+        panel.addArrangedSubview(subscriptionLabel)
+
+        let subscriptionRows = NSStackView()
+        subscriptionRows.orientation = .vertical
+        subscriptionRows.alignment = .leading
+        subscriptionRows.spacing = 5
+        [
+            (StatusBarMetricOption.subscriptionDaily, "每日额度", "今日额度进度"),
+            (StatusBarMetricOption.subscriptionWeekly, "每周额度", "本周额度进度"),
+            (StatusBarMetricOption.subscriptionMonthly, "每月额度", "本月额度进度")
+        ].forEach { option, title, subtitle in
+            subscriptionRows.addArrangedSubview(makeMetricIndicatorRow(option: option, title: title, subtitle: subtitle))
+        }
+        panel.addArrangedSubview(subscriptionRows)
+
+        return panel
+    }
+
+    private func makeMetricIndicatorRow(option: StatusBarMetricOption, title: String, subtitle: String) -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 9
+        row.edgeInsets = NSEdgeInsets(top: 7, left: 10, bottom: 7, right: 10)
+        row.wantsLayer = true
+        row.layer?.cornerRadius = 7
+        row.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.56).cgColor
+        row.widthAnchor.constraint(equalToConstant: 518).isActive = true
+        row.heightAnchor.constraint(equalToConstant: 44).isActive = true
+
+        let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        checkbox.identifier = NSUserInterfaceItemIdentifier(option.rawValue)
+        statusBarMetricCheckboxes[option] = checkbox
+        row.addArrangedSubview(checkbox)
+
+        let icon = NSTextField(labelWithString: option.compactLabel)
+        icon.font = .boldSystemFont(ofSize: 12)
+        icon.textColor = .white
+        icon.alignment = .center
+        icon.wantsLayer = true
+        icon.layer?.cornerRadius = 7
+        icon.layer?.backgroundColor = NSColor.systemGreen.cgColor
+        icon.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 18).isActive = true
+        row.addArrangedSubview(icon)
+
+        let labels = NSStackView()
+        labels.orientation = .vertical
+        labels.alignment = .leading
+        labels.spacing = 1
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.font = .boldSystemFont(ofSize: 13)
+        titleLabel.textColor = .labelColor
+        let subtitleLabel = NSTextField(labelWithString: subtitle)
+        subtitleLabel.font = .systemFont(ofSize: 11)
+        subtitleLabel.textColor = .secondaryLabelColor
+        labels.addArrangedSubview(titleLabel)
+        labels.addArrangedSubview(subtitleLabel)
+        labels.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        row.addArrangedSubview(labels)
+
+        let preview = StatusBarProgressPreviewView()
+        preview.translatesAutoresizingMaskIntoConstraints = false
+        preview.widthAnchor.constraint(equalToConstant: 270).isActive = true
+        preview.heightAnchor.constraint(equalToConstant: 22).isActive = true
+        row.addArrangedSubview(preview)
+        return row
     }
 
     private func makeThresholdRow(
@@ -1554,6 +1986,175 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
         return list.length ? list.length : null;
       }
 
+      function moneyValue(value) {
+        if (!value) return null;
+        const number = Number(String(value).replace(/[$,\\s]/g, ''));
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function formatPlatform(value) {
+        const text = String(value || '').trim();
+        if (!text) return null;
+        if (text.toLowerCase() === 'openai') return 'OpenAI';
+        if (text.toLowerCase() === 'anthropic') return 'Anthropic';
+        if (text.toLowerCase() === 'gemini') return 'Gemini';
+        return text;
+      }
+
+      function formatSubscriptionStatus(value) {
+        const text = String(value || '').toLowerCase();
+        if (text === 'active') return '有效';
+        if (text === 'expired') return '已过期';
+        if (text === 'suspended' || text === 'disabled') return '已暂停';
+        return value ? String(value) : null;
+      }
+
+      function formatDate(value) {
+        if (!value) return null;
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return null;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return year + '/' + month + '/' + day;
+      }
+
+      function expiryText(value) {
+        if (!value) return null;
+        const date = new Date(value);
+        if (!Number.isFinite(date.getTime())) return null;
+        const days = Math.ceil((date.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        if (days < 0) return '已过期 (' + formatDate(value) + ')';
+        return '剩余 ' + days + ' 天 (' + formatDate(value) + ')';
+      }
+
+      function resetTextFromWindow(start, hours) {
+        if (!start) return null;
+        const startDate = new Date(start);
+        if (!Number.isFinite(startDate.getTime())) return null;
+        const target = new Date(startDate.getTime() + hours * 60 * 60 * 1000);
+        const minutes = Math.floor((target.getTime() - Date.now()) / (60 * 1000));
+        if (!Number.isFinite(minutes) || minutes <= 0) return null;
+        const days = Math.floor(minutes / (24 * 60));
+        const remainingHours = Math.floor((minutes % (24 * 60)) / 60);
+        const remainingMinutes = minutes % 60;
+        if (days > 0) return days + 'd ' + remainingHours + 'h 后重置';
+        if (remainingHours > 0) return remainingHours + 'h ' + remainingMinutes + 'm 后重置';
+        return remainingMinutes + 'm 后重置';
+      }
+
+      function subscriptionFromAPI(value) {
+        const subscriptions = listFrom(value);
+        if (!subscriptions.length) return null;
+        const subscription = subscriptions.find((item) => String(item && item.status).toLowerCase() === 'active') || subscriptions[0];
+        if (!subscription) return null;
+        const group = subscription.group || {};
+
+        const daily = {
+          used: numberValue(subscription.daily_usage_usd),
+          limit: numberValue(group.daily_limit_usd),
+          resetText: resetTextFromWindow(subscription.daily_window_start, 24)
+        };
+        const weekly = {
+          used: numberValue(subscription.weekly_usage_usd),
+          limit: numberValue(group.weekly_limit_usd),
+          resetText: resetTextFromWindow(subscription.weekly_window_start, 168)
+        };
+        const monthly = {
+          used: numberValue(subscription.monthly_usage_usd),
+          limit: numberValue(group.monthly_limit_usd),
+          resetText: resetTextFromWindow(subscription.monthly_window_start, 720)
+        };
+        const hasQuota = [daily, weekly, monthly].some((item) => item.used !== null || item.limit !== null);
+        if (!hasQuota) return null;
+
+        return {
+          name: group.name || null,
+          provider: formatPlatform(group.platform),
+          status: formatSubscriptionStatus(subscription.status),
+          expiryText: expiryText(subscription.expires_at),
+          daily,
+          weekly,
+          monthly
+        };
+      }
+
+      function subscriptionFromDOM() {
+        const text = (document.body && document.body.innerText) || '';
+        if (!text) return null;
+        const lines = text.split(/\\n+/).map((line) => line.trim()).filter(Boolean);
+        const moneyPattern = /\\$\\s*([0-9,]+(?:\\.[0-9]+)?)\\s*\\/\\s*\\$\\s*([0-9,]+(?:\\.[0-9]+)?)/;
+        const providerPattern = /OpenAI|Claude|Gemini|Azure|Anthropic/i;
+        const statusPattern = /有效|无效|过期|暂停|失效/;
+
+        function firstLineMatching(pattern) {
+          return lines.find((line) => pattern.test(line)) || null;
+        }
+
+        function compactWhitespace(value) {
+          return String(value || '').replace(/\\s+/g, ' ').trim();
+        }
+
+        function lineMetric(label) {
+          const index = lines.findIndex((line) => line === label || line.includes(label));
+          if (index < 0) return { used: null, limit: null, resetText: null };
+
+          const windowLines = lines.slice(index, index + 12);
+          const moneyLine = windowLines.find((line) => moneyPattern.test(line));
+          const moneyMatch = moneyLine ? moneyLine.match(moneyPattern) : null;
+          const resetLine = windowLines.find((line) => /后重置/.test(line));
+
+          return {
+            used: moneyMatch ? moneyValue(moneyMatch[1]) : null,
+            limit: moneyMatch ? moneyValue(moneyMatch[2]) : null,
+            resetText: resetLine ? compactWhitespace(resetLine) : null
+          };
+        }
+
+        function regexMetric(label) {
+          const pattern = new RegExp(label + '[\\\\s\\\\S]{0,240}?\\\\$\\\\s*([0-9,]+(?:\\\\.[0-9]+)?)\\\\s*\\\\/\\\\s*\\\\$\\\\s*([0-9,]+(?:\\\\.[0-9]+)?)([\\\\s\\\\S]{0,100}?((?:\\\\d+d\\\\s*)?(?:\\\\d+h\\\\s*)?(?:\\\\d+m\\\\s*)?后重置))?', 'i');
+          const match = text.match(pattern);
+          if (!match) return { used: null, limit: null, resetText: null };
+          return {
+            used: moneyValue(match[1]),
+            limit: moneyValue(match[2]),
+            resetText: match[4] ? compactWhitespace(match[4]) : null
+          };
+        }
+
+        function metric(label) {
+          const byLine = lineMetric(label);
+          if (byLine.used !== null || byLine.limit !== null) return byLine;
+          return regexMetric(label);
+        }
+
+        const daily = metric('每日');
+        const weekly = metric('每周');
+        const monthly = metric('每月');
+        const hasQuota = [daily, weekly, monthly].some((item) => item.used !== null || item.limit !== null);
+        if (!hasQuota) return null;
+
+        const headerLine = lines.find((line) => providerPattern.test(line) && statusPattern.test(line)) || null;
+        const providerLine = firstLineMatching(providerPattern);
+        const providerMatch = (headerLine || providerLine || '').match(providerPattern);
+        const statusMatch = (headerLine || firstLineMatching(statusPattern) || '').match(statusPattern);
+        const expiryLine = firstLineMatching(/剩余\\s*\\d+\\s*天|到期|\\d{4}[/-]\\d{1,2}[/-]\\d{1,2}/);
+        const nameFromHeader = headerLine && providerMatch ? headerLine.slice(0, providerMatch.index).replace(/[•·]/g, ' ').trim() : null;
+        const providerIndex = providerLine ? lines.indexOf(providerLine) : -1;
+        const previousLine = providerIndex > 0 ? lines[providerIndex - 1] : null;
+        const nameLine = nameFromHeader || previousLine;
+
+        return {
+          name: nameLine && !/到期时间|每日|每周|每月/.test(nameLine) ? nameLine : null,
+          provider: providerMatch ? providerMatch[0] : providerLine,
+          status: statusMatch ? statusMatch[0] : null,
+          expiryText: expiryLine,
+          daily,
+          weekly,
+          monthly
+        };
+      }
+
       function classifyStatus(monitor, status) {
         const merged = Object.assign({}, monitor || {}, status || {}, (status && status.result) || {});
         const boolKeys = ['ok', 'healthy', 'available', 'success', 'is_ok', 'is_healthy'];
@@ -1579,7 +2180,7 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
       }
 
       try {
-        const [me, stats, monitorPayload, apiKeysPayload] = await Promise.all([
+        const [me, stats, monitorPayload, apiKeysPayload, subscriptionPayload] = await Promise.all([
           api('/auth/me'),
           api('/usage/dashboard/stats'),
           optionalApi(['/channel-monitors']),
@@ -1588,7 +2189,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
             '/tokens?p=0&size=1',
             '/keys?p=0&size=1',
             '/api-keys?p=0&size=1'
-          ])
+          ]),
+          optionalApi(['/subscriptions/active'])
         ]);
 
         const monitors = listFrom(monitorPayload);
@@ -1619,7 +2221,8 @@ final class LiheAPIApp: NSObject, NSApplicationDelegate, NSMenuDelegate, WKNavig
           todayCost: numberValue(stats && (stats.today_actual_cost ?? stats.today_cost)),
           todayTokens: numberValue(stats && stats.today_tokens),
           channels: channelCounts,
-          apiKeyCount: countFrom(apiKeysPayload)
+          apiKeyCount: countFrom(apiKeysPayload),
+          subscription: subscriptionFromAPI(subscriptionPayload) || subscriptionFromDOM()
         }));
       } catch (error) {
         window.webkit.messageHandlers.liheMetrics.postMessage(JSON.stringify({ error: error && error.message ? error.message : String(error) }));
