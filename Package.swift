@@ -18,7 +18,8 @@ let package = Package(
                 "ToCreateWidget",
                 "docs",
                 "dist",
-                "scripts"
+                "scripts",
+                "windows"
             ],
             sources: [
                 "Sources/LiheAPI",

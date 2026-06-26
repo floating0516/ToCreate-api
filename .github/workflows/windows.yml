@@ -1,0 +1,37 @@
+name: Build Windows Prototype
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/windows.yml"
+      - "windows/**"
+      - "scripts/publish_windows.ps1"
+
+jobs:
+  build:
+    name: Publish Windows WebView2 client
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: dotnet restore
+        run: dotnet restore windows/ToCreate.Windows/ToCreate.Windows.csproj
+
+      - name: dotnet publish
+        shell: pwsh
+        run: ./scripts/publish_windows.ps1
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ToCreate-Windows
+          path: dist/windows/ToCreate-Windows/**
+          if-no-files-found: error

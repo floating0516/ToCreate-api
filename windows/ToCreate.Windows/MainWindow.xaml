@@ -1,0 +1,90 @@
+<Window x:Class="ToCreate.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="ToCreate"
+        Width="1180"
+        Height="780"
+        MinWidth="900"
+        MinHeight="640"
+        Background="#F6F7F9">
+  <DockPanel>
+    <Border DockPanel.Dock="Top"
+            Background="#FFFFFF"
+            BorderBrush="#D9DEE7"
+            BorderThickness="0,0,0,1"
+            Padding="10,8">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <Button x:Name="BackButton"
+                Grid.Column="0"
+                Width="34"
+                Height="28"
+                Margin="0,0,6,0"
+                Content="←"
+                Click="BackButton_Click" />
+        <Button x:Name="ForwardButton"
+                Grid.Column="1"
+                Width="34"
+                Height="28"
+                Margin="0,0,6,0"
+                Content="→"
+                Click="ForwardButton_Click" />
+        <Button x:Name="RefreshButton"
+                Grid.Column="2"
+                Width="34"
+                Height="28"
+                Margin="0,0,10,0"
+                Content="↻"
+                Click="RefreshButton_Click" />
+        <TextBlock x:Name="AddressText"
+                   Grid.Column="3"
+                   VerticalAlignment="Center"
+                   Padding="10,4"
+                   FontFamily="Consolas"
+                   FontSize="12"
+                   TextTrimming="CharacterEllipsis"
+                   Background="#EEF2F7"
+                   Foreground="#596271" />
+        <Button Grid.Column="4"
+                MinWidth="96"
+                Height="28"
+                Margin="10,0,0,0"
+                Content="浏览器打开"
+                Click="OpenExternalButton_Click" />
+      </Grid>
+    </Border>
+
+    <Grid>
+      <wv2:WebView2 x:Name="Browser" />
+      <Border x:Name="MessageBanner"
+              Visibility="Collapsed"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Margin="0,14,0,0"
+              Padding="14,10"
+              Background="#FFFFFF"
+              BorderBrush="#D9DEE7"
+              BorderThickness="1">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock x:Name="MessageText"
+                     VerticalAlignment="Center"
+                     Margin="0,0,12,0"
+                     Foreground="#1F2937" />
+          <Button Content="刷新"
+                  Margin="0,0,8,0"
+                  Click="RefreshButton_Click" />
+          <Button Content="浏览器打开"
+                  Click="OpenExternalButton_Click" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>
